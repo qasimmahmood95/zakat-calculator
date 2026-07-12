@@ -103,6 +103,26 @@
     return Math.ceil(n * 100 - 1e-7) / 100;
   }
 
+  /**
+   * Parse a user-entered zakatable proportion (%), used by the investments
+   * and pensions sections. Returns null when the field is blank or unusable
+   * (undefined/null/""/non-numeric) — the caller must EXCLUDE the item and
+   * FLAG it rather than guess (same policy as missing FX rates and metal
+   * prices: this tool never fabricates numbers). Otherwise clamps to
+   * [0, 100]. An explicit 0 is a valid entry meaning 0%.
+   *
+   * Contrast with business ownershipPct (blank = 100): an unstated ownership
+   * share naturally reads as "wholly mine" — a fact about the user. A fund's
+   * zakatable-assets proportion is a fact about the fund that the user must
+   * look up; defaulting it would fabricate a number.
+   */
+  function parseProportionPct(raw) {
+    if (raw === undefined || raw === null || raw === "") return null;
+    const n = typeof raw === "string" ? parseFloat(raw) : Number(raw);
+    if (!Number.isFinite(n)) return null;
+    return Math.min(Math.max(n, 0), 100);
+  }
+
   /* ------------------------------------------------------------------ *
    * Currency conversion
    * ------------------------------------------------------------------ */
@@ -281,6 +301,117 @@
       });
       if (isZakatable) out.zakatable += value;
       else out.excluded += value;
+    });
+    return out;
+  }
+
+  /**
+   * Listed shares, funds & ISAs (stocks-and-shares ISAs, ETFs, unit trusts,
+   * directly held listed shares). Cash ISAs are ordinary savings and belong
+   * in the cash section; dividends already received and held are cash too.
+   *
+   * Position applied (a scholarly-difference area — see UI note and README):
+   *  - "trading": bought with the intention of resale — trade stock,
+   *    zakatable at full market value.
+   *  - "longTermFull": held long-term; zakat on the full market value —
+   *    the simpler, more cautious approach.
+   *  - "longTermProportion": held long-term; zakat on the holding's share of
+   *    the company's/fund's zakatable assets. The proportion (%) is entered
+   *    BY THE USER — some institutions publish proxy percentages, but this
+   *    tool never bakes one in. A blank proportion EXCLUDES the holding from
+   *    the totals and flags it (missingProportion), like a missing FX rate.
+   * Any unrecognised treatment falls back to full market value, so a
+   * malformed import can never silently understate zakat.
+   *
+   * `excluded` accumulates the non-zakatable remainder of proportion items
+   * (market value − zakatable share) so the figure is available to show.
+   */
+  function totalInvestments(items) {
+    const out = { items: [], zakatable: 0, excluded: 0, missingProportion: false };
+    (items || []).forEach(function (item) {
+      const marketValue = toNumber(item.value);
+      const treatment = item.treatment === "longTermFull" || item.treatment === "longTermProportion"
+        ? item.treatment
+        : "trading";
+      let appliedPct = 100;
+      let missing = false;
+      if (treatment === "longTermProportion") {
+        const pct = parseProportionPct(item.zakatablePct);
+        if (pct === null) { missing = true; appliedPct = null; }
+        else appliedPct = pct;
+      }
+      const zakatableValue = missing ? 0 : marketValue * (appliedPct / 100);
+      out.items.push({
+        id: item.id,
+        label: item.label || "",
+        treatment: treatment,
+        marketValue: marketValue,
+        appliedPct: appliedPct,          // 100 for trading/longTermFull; null when missing
+        gbpValue: zakatableValue,        // the amount the breakdown line shows
+        missingProportion: missing,
+      });
+      if (missing) out.missingProportion = true;
+      else {
+        out.zakatable += zakatableValue;
+        out.excluded += marketValue - zakatableValue;
+      }
+    });
+    return out;
+  }
+
+  /**
+   * Pensions (workplace DC, SIPPs, defined benefit).
+   *
+   * Position applied (a significant scholarly-difference area — both DC
+   * positions are stated neutrally in the UI and README; the user picks per
+   * pot):
+   *  - "dcAnnual": the pot is owned wealth invested on the user's behalf —
+   *    zakat annually on pot value × a USER-ENTERED zakatable proportion
+   *    (%). Blank proportion: excluded and flagged, never guessed.
+   *  - "dcDeferred": the view that there is no effective access until
+   *    retirement, so zakat falls due on access/receipt — the pot is
+   *    recorded and shown EXCLUDED (like income property).
+   *  - "db": a defined-benefit scheme promises a future income rather than
+   *    a pot the user owns — not zakatable until amounts are received.
+   *    Recorded, excluded.
+   * Any unrecognised type is excluded (recorded, not counted) — the tool
+   * will not invent a zakatable treatment. Employer-vs-personal
+   * contributions and unvested amounts are out of granular scope (stated
+   * in the UI).
+   */
+  function totalPensions(items) {
+    const out = { items: [], zakatable: 0, excluded: 0, missingProportion: false };
+    (items || []).forEach(function (item) {
+      const potValue = toNumber(item.value);
+      const type = item.type || "dcAnnual";
+      const isAnnual = type === "dcAnnual";
+      let appliedPct = null;
+      let missing = false;
+      let zakatableValue = 0;
+      if (isAnnual) {
+        const pct = parseProportionPct(item.zakatablePct);
+        if (pct === null) missing = true;
+        else { appliedPct = pct; zakatableValue = potValue * (pct / 100); }
+      }
+      out.items.push({
+        id: item.id,
+        label: item.label || "",
+        type: type,
+        potValue: potValue,
+        appliedPct: appliedPct,
+        // dcAnnual: the zakatable slice; excluded types: the full pot, so
+        // the UI strikes it through exactly like income property.
+        gbpValue: isAnnual ? zakatableValue : potValue,
+        zakatable: isAnnual && !missing,
+        missingProportion: missing,
+      });
+      if (missing) out.missingProportion = true;
+      else if (isAnnual) {
+        out.zakatable += zakatableValue;
+        out.excluded += potValue - zakatableValue;
+      } else {
+        out.excluded += potValue;
+      }
     });
     return out;
   }
@@ -472,7 +603,7 @@
    * @param {object} state — see app.js for the shape; only the fields used
    *   here matter: state.settings {goldPricePerGram, silverPricePerGram,
    *   nisabBasis: "gold"|"silver", fxRates, timing: "lunar"|"gregorian"} and
-   *   the six item arrays.
+   *   the eight item arrays.
    * @returns a summary object with per-category itemisation, totals, nisab
    *   comparison and the amount due. `zakatDue` is null when the chosen
    *   nisab threshold cannot be computed (missing metal price) — the tool
@@ -488,9 +619,12 @@
     const crypto = totalCrypto(state.crypto);
     const business = totalBusiness(state.business);
     const property = totalProperty(state.property);
+    const investments = totalInvestments(state.investments);
+    const pensions = totalPensions(state.pensions);
     const debts = totalDeductions(state.debts);
 
-    const grossZakatable = cash.total + metals.total + crypto.total + business.net + property.zakatable;
+    const grossZakatable = cash.total + metals.total + crypto.total + business.net
+      + property.zakatable + investments.zakatable + pensions.zakatable;
     // Personal deductions cannot push zakatable wealth below zero.
     const netZakatable = Math.max(0, grossZakatable - debts.deductible);
 
@@ -516,6 +650,8 @@
       crypto: crypto,
       business: business,
       property: property,
+      investments: investments,
+      pensions: pensions,
       debts: debts,
       grossZakatable: grossZakatable,
       totalDeductions: debts.deductible,
@@ -545,6 +681,7 @@
     SUPPORTED_CURRENCIES: SUPPORTED_CURRENCIES,
     toNumber: toNumber,
     roundUpToPenny: roundUpToPenny,
+    parseProportionPct: parseProportionPct,
     convertToGbp: convertToGbp,
     goldPurityFactor: goldPurityFactor,
     silverPurityFactor: silverPurityFactor,
@@ -554,6 +691,8 @@
     totalCrypto: totalCrypto,
     totalBusiness: totalBusiness,
     totalProperty: totalProperty,
+    totalInvestments: totalInvestments,
+    totalPensions: totalPensions,
     totalDeductions: totalDeductions,
     nisabThresholds: nisabThresholds,
     hijriParts: hijriParts,

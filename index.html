@@ -275,10 +275,66 @@
         </div>
       </section>
 
+      <!-- Shares, funds & ISAs -->
+      <section class="card" aria-labelledby="h-investments">
+        <div class="flex items-center justify-between gap-2">
+          <h2 id="h-investments" class="text-lg font-semibold">6 &middot; Shares, funds &amp; ISAs</h2>
+          <button type="button" class="btn-add no-print" data-add="investments">+ Add holding</button>
+        </div>
+        <p class="mt-1 text-sm text-slate-600 dark:text-slate-400">
+          Listed shares, funds, ETFs and stocks-&amp;-shares ISAs. A <strong>cash ISA</strong> is a bank
+          balance — enter it in section&nbsp;1, not here.
+        </p>
+        <div class="mt-3 space-y-3" id="items-investments" data-items="investments"></div>
+        <div class="fiqh-note">
+          <span class="khilaf">Scholarly difference</span>
+          <strong>Intention decides the treatment.</strong> Shares bought <strong>to resell</strong> are
+          trade stock — zakatable at full market value. For holdings kept <strong>long-term</strong> (for
+          dividends or growth), scholars differ: some hold the full market value zakatable — the simpler,
+          more cautious approach — while other scholars hold zakat is due only on your share of the
+          company&rsquo;s or fund&rsquo;s <strong>zakatable assets</strong> (cash, receivables,
+          stock-in-trade). If you follow the proportion view, you must find and enter that percentage
+          yourself — for example from the company&rsquo;s or fund&rsquo;s published accounts. This tool
+          never assumes a proportion for you; the placeholder is an example, not a suggestion, and a
+          holding with no proportion entered is excluded and flagged rather than guessed.
+          <strong>Dividends already received</strong> and still held are cash — include them in
+          section&nbsp;1 and take care not to double-count. Commonly held views — consult a scholar for
+          your madhhab.
+        </div>
+      </section>
+
+      <!-- Pensions -->
+      <section class="card" aria-labelledby="h-pensions">
+        <div class="flex items-center justify-between gap-2">
+          <h2 id="h-pensions" class="text-lg font-semibold">7 &middot; Pensions</h2>
+          <button type="button" class="btn-add no-print" data-add="pensions">+ Add pension</button>
+        </div>
+        <p class="mt-1 text-sm text-slate-600 dark:text-slate-400">
+          Workplace and personal pensions, including SIPPs. Choose the treatment for each pot — it decides
+          whether anything is counted this year.
+        </p>
+        <div class="mt-3 space-y-3" id="items-pensions" data-items="pensions"></div>
+        <div class="fiqh-note">
+          <span class="khilaf">Scholarly difference</span>
+          <strong>Defined-contribution (DC) pots</strong> (workplace DC, SIPPs) are a significant
+          difference area, and this tool takes no side — it offers both positions.
+          <strong>One position:</strong> the pot is your owned wealth invested on your behalf, so zakat is
+          due each year on the zakatable portion of its underlying assets — enter that proportion yourself
+          (this tool never assumes one; the placeholder is an example only).
+          <strong>Other position:</strong> because you have no effective access to the money until
+          retirement, zakat falls due only when it becomes accessible or is received — pots entered under
+          this view are recorded and shown as excluded.
+          <strong>Defined-benefit (DB) schemes</strong> promise a future income rather than a pot you own,
+          and are commonly held not zakatable until amounts are actually received.
+          The treatment of employer versus personal contributions, and of unvested amounts, is a further
+          nuance beyond this tool&rsquo;s scope. Commonly held views — consult a scholar for your madhhab.
+        </div>
+      </section>
+
       <!-- Debts -->
       <section class="card" aria-labelledby="h-debts">
         <div class="flex items-center justify-between gap-2">
-          <h2 id="h-debts" class="text-lg font-semibold">6 &middot; Debts &amp; deductions</h2>
+          <h2 id="h-debts" class="text-lg font-semibold">8 &middot; Debts &amp; deductions</h2>
           <button type="button" class="btn-add no-print" data-add="debts">+ Add debt</button>
         </div>
         <p class="mt-1 text-sm text-slate-600 dark:text-slate-400">Money you owe. Choose the type carefully — it decides whether the amount is deducted.</p>
