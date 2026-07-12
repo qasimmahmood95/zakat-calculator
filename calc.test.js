@@ -298,6 +298,21 @@ test("silver threshold is lower than gold at realistic prices (why many advise i
   const t = Z.nisabThresholds(100, 1.2);
   assert.ok(t.silver < t.gold);
 });
+test("the 85 g / 595 g convention is selectable", () => {
+  const t = Z.nisabThresholds(100, 1.2, "85");
+  approx(t.gold, 8500);
+  approx(t.silver, 714);
+  assert.strictEqual(t.goldGrams, 85);
+  assert.strictEqual(t.silverGrams, 595);
+});
+test("default and unknown conventions use 87.48 g / 612.36 g", () => {
+  [undefined, "nonsense"].forEach((conv) => {
+    const t = Z.nisabThresholds(100, 1.2, conv);
+    approx(t.gold, 8748);
+    assert.strictEqual(t.goldGrams, 87.48);
+    assert.strictEqual(t.silverGrams, 612.36);
+  });
+});
 
 /* ------------------------------------------------------------------ *
  * Hawl / dates
@@ -502,6 +517,15 @@ test("a penny below nisab: nothing due", () => {
   const r = Z.calculateZakat(simpleState(612.35));
   assert.strictEqual(r.meetsNisab, false);
   assert.strictEqual(r.zakatDue, 0);
+});
+test("the 85/595 convention can change whether zakat is due at the margin", () => {
+  // £600 with silver at £1/g: below the 612.36 g threshold, but at or above 595 g.
+  const def = Z.calculateZakat(simpleState(600));
+  assert.strictEqual(def.meetsNisab, false);
+  const alt = Z.calculateZakat(simpleState(600, { nisabConvention: "85" }));
+  assert.strictEqual(alt.meetsNisab, true);
+  assert.strictEqual(alt.nisab.convention, "85");
+  approx(alt.nisab.applied, 595);
 });
 test("missing metal price: zakatDue is null, never a guess", () => {
   const r = Z.calculateZakat(simpleState(10000, { silverPricePerGram: "" }));

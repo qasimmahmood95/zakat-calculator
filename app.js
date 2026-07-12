@@ -32,6 +32,7 @@
         goldPricePerGram: "",
         silverPricePerGram: "",
         nisabBasis: "silver",
+        nisabConvention: "87.48",
         fxRates: { USD: "", EUR: "", AED: "" },
         hawlDate: "",
         timing: "lunar",
@@ -78,29 +79,44 @@
     saveTimer = setTimeout(saveState, 300);
   }
 
+  /**
+   * Adopt a plain state object (from localStorage or an imported file),
+   * merging it over defaults so missing or newly added fields get sane
+   * values and malformed sections are dropped rather than crashing the app.
+   * Throws on anything that is not a state-shaped object.
+   */
+  function adoptState(parsed) {
+    if (!parsed || typeof parsed !== "object") throw new Error("not a state object");
+    const base = defaultState();
+    state = {
+      settings: Object.assign(base.settings, parsed.settings || {}),
+      cash: Array.isArray(parsed.cash) ? parsed.cash : [],
+      metals: Array.isArray(parsed.metals) ? parsed.metals : [],
+      crypto: Array.isArray(parsed.crypto) ? parsed.crypto : [],
+      business: Array.isArray(parsed.business) ? parsed.business : [],
+      property: Array.isArray(parsed.property) ? parsed.property : [],
+      debts: Array.isArray(parsed.debts) ? parsed.debts : [],
+    };
+    state.settings.fxRates = Object.assign({ USD: "", EUR: "", AED: "" }, state.settings.fxRates || {});
+    // Continue id numbering above anything adopted, then repair any item
+    // that arrived without a usable id (row removal matches by numeric id).
+    SECTIONS.forEach(function (s) {
+      state[s].forEach(function (item) {
+        if (typeof item.id === "number" && Number.isFinite(item.id) && item.id >= nextId) nextId = item.id + 1;
+      });
+    });
+    SECTIONS.forEach(function (s) {
+      state[s].forEach(function (item) {
+        if (typeof item.id !== "number" || !Number.isFinite(item.id)) item.id = newId();
+      });
+    });
+  }
+
   function loadState() {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
       if (!raw) return;
-      const parsed = JSON.parse(raw);
-      if (!parsed || typeof parsed !== "object") return;
-      const base = defaultState();
-      state = {
-        settings: Object.assign(base.settings, parsed.settings || {}),
-        cash: Array.isArray(parsed.cash) ? parsed.cash : [],
-        metals: Array.isArray(parsed.metals) ? parsed.metals : [],
-        crypto: Array.isArray(parsed.crypto) ? parsed.crypto : [],
-        business: Array.isArray(parsed.business) ? parsed.business : [],
-        property: Array.isArray(parsed.property) ? parsed.property : [],
-        debts: Array.isArray(parsed.debts) ? parsed.debts : [],
-      };
-      state.settings.fxRates = Object.assign({ USD: "", EUR: "", AED: "" }, state.settings.fxRates || {});
-      // Continue id numbering above anything restored.
-      SECTIONS.forEach(function (s) {
-        state[s].forEach(function (item) {
-          if (typeof item.id === "number" && item.id >= nextId) nextId = item.id + 1;
-        });
-      });
+      adoptState(JSON.parse(raw));
     } catch (e) {
       /* corrupted storage: start fresh rather than crash */
       state = defaultState();
@@ -334,12 +350,14 @@
     }
 
     // --- Metals
+    // calc.js returns one result item per input item in the same order, so
+    // the source of each line is simply the state item at the same index.
     const metalLines = r.metals.items
-      .filter(function (it, i) { return !isBlankItem("metals", state.metals[i]); })
-      .map(function (it, idx) {
+      .map(function (it, i) {
+        const src = state.metals[i];
+        if (isBlankItem("metals", src)) return "";
         anyItems = true;
-        const src = state.metals.filter(function (m, i) { return !isBlankItem("metals", state.metals[i]); })[idx];
-        const detail = src && src.entryMode !== "value"
+        const detail = src.entryMode !== "value"
           ? esc(NUM.format(Z.toNumber(src.grams)) + " g · " + src.purity + (src.metal === "silver" ? " silver" : "k gold"))
           : "entered value";
         return breakdownLine(esc(it.label || (it.metal === "silver" ? "Silver" : "Gold")), detail, GBP.format(it.gbpValue));
@@ -348,11 +366,11 @@
 
     // --- Crypto
     const cryptoLines = r.crypto.items
-      .filter(function (it, i) { return !isBlankItem("crypto", state.crypto[i]); })
-      .map(function (it, idx) {
+      .map(function (it, i) {
+        const src = state.crypto[i];
+        if (isBlankItem("crypto", src)) return "";
         anyItems = true;
-        const src = state.crypto.filter(function (c, i) { return !isBlankItem("crypto", state.crypto[i]); })[idx];
-        const detail = src ? esc(NUM.format(Z.toNumber(src.quantity)) + " × " + GBP.format(Z.toNumber(src.price))) : "";
+        const detail = esc(NUM.format(Z.toNumber(src.quantity)) + " × " + GBP.format(Z.toNumber(src.price)));
         return breakdownLine(esc(it.label || "Cryptoasset"), detail, GBP.format(it.gbpValue));
       }).join("");
     if (cryptoLines) html += categoryBlock("Cryptoassets", GBP.format(r.crypto.total), cryptoLines);
@@ -407,9 +425,9 @@
       '<div class="mt-4 rounded-xl bg-slate-100 p-3 dark:bg-slate-900/60">' +
       '<h3 class="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Nisab comparison</h3>' +
       '<dl class="mt-1 space-y-1 text-sm">' +
-      '<div class="flex justify-between"><dt>Silver (612.36 g)' + (r.nisab.basis === "silver" ? basisTag : "") + "</dt><dd>" +
+      '<div class="flex justify-between"><dt>Silver (' + r.nisab.silverGrams + " g)" + (r.nisab.basis === "silver" ? basisTag : "") + "</dt><dd>" +
       (r.nisab.silver === null ? '<span class="text-amber-600 dark:text-amber-400">enter silver price</span>' : GBP.format(r.nisab.silver)) + "</dd></div>" +
-      '<div class="flex justify-between"><dt>Gold (87.48 g)' + (r.nisab.basis === "gold" ? basisTag : "") + "</dt><dd>" +
+      '<div class="flex justify-between"><dt>Gold (' + r.nisab.goldGrams + " g)" + (r.nisab.basis === "gold" ? basisTag : "") + "</dt><dd>" +
       (r.nisab.gold === null ? '<span class="text-amber-600 dark:text-amber-400">enter gold price</span>' : GBP.format(r.nisab.gold)) + "</dd></div></dl>";
     if (r.meetsNisab === null) {
       html += '<p class="mt-2 text-xs text-amber-700 dark:text-amber-300">Enter the ' + r.nisab.basis + " price in Settings to compare your wealth with the nisab.</p>";
@@ -434,6 +452,21 @@
 
     document.getElementById("results-body").innerHTML = html;
 
+    // Print-only: list the positions applied so a printed summary stands on
+    // its own. Dynamic pieces (basis, gram convention, rate) come from the
+    // same calculation as the figures above.
+    document.getElementById("print-positions").innerHTML =
+      '<h3 class="mt-4 border-t border-slate-300 pt-3 text-xs font-semibold uppercase tracking-wide text-slate-500">Positions applied (commonly held views — differences are flagged in the app)</h3>' +
+      '<ul class="mt-1 list-disc space-y-1 pl-5 text-xs text-slate-600">' +
+      "<li>Nisab: " + r.nisab.basis + " basis, on the " + r.nisab.goldGrams + " g gold / " + r.nisab.silverGrams + " g silver gram convention.</li>" +
+      "<li>Rate: " + rateLabel + ". Wealth is assessed as held on the zakat date.</li>" +
+      "<li>Gold and silver valued at metal content; whether personal-use jewellery is included depends on madhhab.</li>" +
+      "<li>Business: ownership % &times; (cash + receivables + stock &minus; short-term liabilities), floored at zero.</li>" +
+      "<li>Property: rental income held at the zakat date zakatable; income-property value excluded; resale property at market value.</li>" +
+      "<li>Debts: amounts due within 12 months deducted; remaining long-term balances shown but not deducted.</li>" +
+      "<li>Zakat due rounded up to the penny. Educational tool — not a fatwa; consult a scholar for your madhhab.</li>" +
+      "</ul>";
+
     // Screen-reader announcement (persistent live region, debounced by input flow).
     document.getElementById("sr-live").textContent =
       r.zakatDue === null ? "Enter metal prices to compute zakat due." : "Zakat due: " + GBP.format(r.zakatDue);
@@ -441,6 +474,8 @@
     // Settings-panel niceties driven by the same calculation.
     document.getElementById("nisab-silver-amount").textContent = r.nisab.silver === null ? "enter silver price" : GBP.format(r.nisab.silver);
     document.getElementById("nisab-gold-amount").textContent = r.nisab.gold === null ? "enter gold price" : GBP.format(r.nisab.gold);
+    document.getElementById("nisab-silver-grams").textContent = r.nisab.silverGrams;
+    document.getElementById("nisab-gold-grams").textContent = r.nisab.goldGrams;
 
     // Prefer the true Hijri anniversary (Umm al-Qura via Intl); fall back to
     // the 354-day approximation only where the calendar is unsupported.
@@ -500,6 +535,12 @@
         refresh();
       });
     });
+    document.querySelectorAll('input[name="nisab-convention"]').forEach(function (radio) {
+      radio.addEventListener("change", function (e) {
+        state.settings.nisabConvention = e.target.value;
+        refresh();
+      });
+    });
   }
 
   function populateSettings() {
@@ -514,6 +555,9 @@
     });
     document.querySelectorAll('input[name="timing"]').forEach(function (radio) {
       radio.checked = radio.value === state.settings.timing;
+    });
+    document.querySelectorAll('input[name="nisab-convention"]').forEach(function (radio) {
+      radio.checked = radio.value === state.settings.nisabConvention;
     });
   }
 
@@ -577,7 +621,7 @@
     let wasDark = false;
     window.addEventListener("beforeprint", function () {
       document.getElementById("print-date-line").textContent =
-        "Generated " + new Date().toISOString().slice(0, 10) + " from figures entered by the user. Educational tool — not a fatwa.";
+        "Generated " + new Date().toISOString().slice(0, 10) + " from figures entered by the user · qasimmahmood95.github.io/zakat-calculator";
       wasDark = document.documentElement.classList.contains("dark");
       if (wasDark) document.documentElement.classList.remove("dark");
     });
@@ -594,6 +638,62 @@
       populateSettings();
       SECTIONS.forEach(renderSection);
       renderResults();
+    });
+  }
+
+  /* ------------------------------------------------------------------ *
+   * Export / import — a JSON file saved to and read from the user's own
+   * device. No upload, no clipboard, no third party: the Blob download and
+   * FileReader below are the whole data path.
+   * ------------------------------------------------------------------ */
+
+  function bindDataTransfer() {
+    document.getElementById("export-btn").addEventListener("click", function () {
+      const payload = {
+        app: "zakat-calculator",
+        schema: 1,
+        exported: new Date().toISOString().slice(0, 10),
+        state: state,
+      };
+      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "zakat-data-" + payload.exported + ".json";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    });
+
+    const fileInput = document.getElementById("import-file");
+    document.getElementById("import-btn").addEventListener("click", function () {
+      fileInput.click();
+    });
+    fileInput.addEventListener("change", function () {
+      const file = fileInput.files && fileInput.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = function () {
+        try {
+          const parsed = JSON.parse(String(reader.result));
+          if (!parsed || parsed.app !== "zakat-calculator" || typeof parsed.state !== "object") {
+            throw new Error("not a zakat-calculator export");
+          }
+          if (!window.confirm("Importing replaces everything currently entered. Continue?")) {
+            fileInput.value = "";
+            return;
+          }
+          adoptState(parsed.state);
+          populateSettings();
+          SECTIONS.forEach(renderSection);
+          refresh();
+        } catch (e) {
+          window.alert("Could not import this file — it does not look like an export from this tool.");
+        }
+        fileInput.value = "";
+      };
+      reader.readAsText(file);
     });
   }
 
@@ -615,5 +715,6 @@
   bindSettings();
   bindItemEvents();
   bindChrome();
+  bindDataTransfer();
   renderResults();
 })();

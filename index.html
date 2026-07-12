@@ -58,7 +58,7 @@
   <main class="mx-auto grid max-w-6xl gap-6 px-4 py-6 sm:px-6 lg:grid-cols-[minmax(0,1fr)_360px]">
 
     <!-- ============================ FORM COLUMN ============================ -->
-    <div class="space-y-6">
+    <div class="space-y-6 print:hidden">
 
       <!-- Settings -->
       <section class="card" aria-labelledby="h-settings">
@@ -85,16 +85,30 @@
             <label class="flex cursor-pointer items-start gap-3 rounded-xl border border-slate-200 p-3 has-[:checked]:border-emerald-500 has-[:checked]:bg-emerald-50 dark:border-slate-700 dark:has-[:checked]:bg-emerald-900/20">
               <input type="radio" name="nisab-basis" value="silver" checked class="mt-1 accent-emerald-600" />
               <span class="text-sm">
-                <span class="font-medium">Silver — 612.36 g</span><br />
+                <span class="font-medium">Silver — <span id="nisab-silver-grams">612.36</span> g</span><br />
                 <span class="text-slate-600 dark:text-slate-400">Threshold: <span id="nisab-silver-amount" class="font-semibold">enter silver price</span></span>
               </span>
             </label>
             <label class="flex cursor-pointer items-start gap-3 rounded-xl border border-slate-200 p-3 has-[:checked]:border-emerald-500 has-[:checked]:bg-emerald-50 dark:border-slate-700 dark:has-[:checked]:bg-emerald-900/20">
               <input type="radio" name="nisab-basis" value="gold" class="mt-1 accent-emerald-600" />
               <span class="text-sm">
-                <span class="font-medium">Gold — 87.48 g</span><br />
+                <span class="font-medium">Gold — <span id="nisab-gold-grams">87.48</span> g</span><br />
                 <span class="text-slate-600 dark:text-slate-400">Threshold: <span id="nisab-gold-amount" class="font-semibold">enter gold price</span></span>
               </span>
+            </label>
+          </div>
+        </fieldset>
+
+        <fieldset class="mt-4">
+          <legend class="label">Gram convention</legend>
+          <div class="flex flex-wrap gap-x-6 gap-y-2">
+            <label class="inline-flex items-center gap-2 text-sm">
+              <input type="radio" name="nisab-convention" value="87.48" checked class="accent-emerald-600" />
+              <span>87.48&nbsp;g gold / 612.36&nbsp;g silver</span>
+            </label>
+            <label class="inline-flex items-center gap-2 text-sm">
+              <input type="radio" name="nisab-convention" value="85" class="accent-emerald-600" />
+              <span>85&nbsp;g / 595&nbsp;g</span>
             </label>
           </div>
         </fieldset>
@@ -102,8 +116,9 @@
         <div class="fiqh-note">
           <span class="khilaf">Scholarly difference</span>
           The nisab is the minimum wealth at which zakat becomes due: 87.48&nbsp;g of gold or 612.36&nbsp;g of
-          silver. (Some institutions convert the classical measures as 85&nbsp;g / 595&nbsp;g — a small difference
-          in gram conversion, flagged for completeness.) For mixed wealth (cash, crypto, business assets), many
+          silver on the default convention (4.374&nbsp;g per mithqal). Some institutions convert the classical
+          measures as 85&nbsp;g / 595&nbsp;g instead — a difference in gram conversion, selectable above; both
+          are in respectable use. For mixed wealth (cash, crypto, business assets), many
           scholars advise the <strong>silver basis</strong>: it is the lower threshold, so zakat becomes due
           sooner — seen as more cautious for the payer and more beneficial to recipients. Others prefer the gold
           basis as historically more stable in value. Both are computed above; the choice is yours.
@@ -285,7 +300,7 @@
         <ul class="mt-3 list-disc space-y-1 pl-5 text-sm text-slate-700 dark:text-slate-300">
           <li>Every rule involving scholarly difference is flagged <span class="khilaf">Scholarly difference</span> with the applied position stated as a commonly held view — no named-scholar attributions, no fabricated citations.</li>
           <li>All arithmetic lives in <code class="rounded bg-slate-100 px-1 dark:bg-slate-700">calc.js</code>, unit-tested with plain Node — see the README for the positions taken and why.</li>
-          <li><strong>Privacy:</strong> no accounts, no analytics, no cookies — and the page makes <strong>no network requests at all</strong>. Your figures are autosaved to your browser&rsquo;s local storage only (clear them with the button in the summary panel).</li>
+          <li><strong>Privacy:</strong> no accounts, no analytics, no cookies — and the page makes <strong>no network requests at all</strong>. Your figures are autosaved to your browser&rsquo;s local storage only (clear them with the button in the summary panel), and can be exported to / imported from a JSON file that never leaves your device.</li>
         </ul>
       </section>
     </div>
@@ -296,16 +311,30 @@
         <h2 class="text-lg font-semibold">Your zakat summary</h2>
         <p class="hidden text-xs text-slate-500 print:block" id="print-date-line"></p>
         <div id="results-body" class="mt-3 text-sm"><!-- rendered by app.js --></div>
+        <div id="print-positions" class="hidden print:block"><!-- rendered by app.js, print only --></div>
         <div class="mt-4 flex flex-wrap gap-2 no-print">
           <button id="print-btn" type="button"
                   class="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500/60">
             &#128424;&#65039; Print summary
           </button>
+          <button id="export-btn" type="button"
+                  class="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 dark:border-slate-600 dark:hover:bg-slate-700">
+            Export data
+          </button>
+          <button id="import-btn" type="button"
+                  class="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 dark:border-slate-600 dark:hover:bg-slate-700">
+            Import data
+          </button>
+          <input id="import-file" type="file" accept="application/json,.json" class="hidden" aria-hidden="true" tabindex="-1" />
           <button id="clear-btn" type="button"
                   class="rounded-lg border border-red-300 px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-red-400/50 dark:border-red-800 dark:text-red-400 dark:hover:bg-red-950/40">
             Clear all data
           </button>
         </div>
+        <p class="mt-2 text-xs text-slate-500 no-print dark:text-slate-400">
+          Export saves your figures as a JSON file on your device (nothing is uploaded); import restores them —
+          handy as a year-on-year record.
+        </p>
         <p class="mt-3 text-xs text-slate-500 dark:text-slate-400">
           Educational tool — not a fatwa. Verify prices and consult a scholar before paying.
         </p>
