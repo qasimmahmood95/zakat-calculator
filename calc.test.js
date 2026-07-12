@@ -79,6 +79,26 @@ test("zero and negatives return 0", () => {
   assert.strictEqual(Z.roundUpToPenny(-5), 0);
 });
 
+group("parseProportionPct — user-entered zakatable proportions");
+
+test("blank means missing — returns null, never a guessed proportion", () => {
+  assert.strictEqual(Z.parseProportionPct(""), null);
+  assert.strictEqual(Z.parseProportionPct(null), null);
+  assert.strictEqual(Z.parseProportionPct(undefined), null);
+});
+test("non-numeric input is treated as missing, not as 0", () =>
+  assert.strictEqual(Z.parseProportionPct("abc"), null));
+test("numeric strings and numbers parse", () => {
+  assert.strictEqual(Z.parseProportionPct("25"), 25);
+  assert.strictEqual(Z.parseProportionPct(25.5), 25.5);
+});
+test("explicit 0 is a valid entry (0%), distinct from blank", () =>
+  assert.strictEqual(Z.parseProportionPct(0), 0));
+test("clamped to [0, 100]", () => {
+  assert.strictEqual(Z.parseProportionPct(250), 100);
+  assert.strictEqual(Z.parseProportionPct(-30), 0);
+});
+
 /* ------------------------------------------------------------------ *
  * Currency conversion
  * ------------------------------------------------------------------ */
@@ -248,6 +268,134 @@ test("property held for income is NOT zakatable — recorded but excluded", () =
   assert.strictEqual(result.zakatable, 0);
   approx(result.excluded, 250000);
   assert.strictEqual(result.items[0].zakatable, false);
+});
+
+/* ------------------------------------------------------------------ *
+ * Shares, funds & ISAs
+ * ------------------------------------------------------------------ */
+group("shares, funds & ISAs — treatment determines the zakatable value");
+
+test("trading: full market value is zakatable", () => {
+  const r = Z.totalInvestments([{ id: 1, treatment: "trading", value: 10000 }]);
+  approx(r.zakatable, 10000);
+  approx(r.excluded, 0);
+});
+test("long-term at full market value (the more cautious approach)", () => {
+  approx(Z.totalInvestments([{ id: 1, treatment: "longTermFull", value: 8000 }]).zakatable, 8000);
+});
+test("long-term proportion: market value × the USER-entered %", () => {
+  const r = Z.totalInvestments([{ id: 1, treatment: "longTermProportion", value: 10000, zakatablePct: 25 }]);
+  approx(r.zakatable, 2500);
+  approx(r.excluded, 7500);
+  assert.strictEqual(r.items[0].appliedPct, 25);
+  assert.strictEqual(r.missingProportion, false);
+});
+test("blank proportion: excluded and FLAGGED — the tool never assumes one", () => {
+  const r = Z.totalInvestments([{ id: 1, treatment: "longTermProportion", value: 10000, zakatablePct: "" }]);
+  assert.strictEqual(r.zakatable, 0);
+  assert.strictEqual(r.excluded, 0); // unknown split: counted nowhere until entered
+  assert.strictEqual(r.missingProportion, true);
+  assert.strictEqual(r.items[0].missingProportion, true);
+  assert.strictEqual(r.items[0].gbpValue, 0);
+});
+test("explicit 0% is respected (not treated as missing)", () => {
+  const r = Z.totalInvestments([{ id: 1, treatment: "longTermProportion", value: 10000, zakatablePct: 0 }]);
+  assert.strictEqual(r.zakatable, 0);
+  approx(r.excluded, 10000);
+  assert.strictEqual(r.missingProportion, false);
+});
+test("proportion above 100 clamps to 100", () => {
+  const r = Z.totalInvestments([{ id: 1, treatment: "longTermProportion", value: 10000, zakatablePct: 250 }]);
+  approx(r.zakatable, 10000);
+  assert.strictEqual(r.items[0].appliedPct, 100);
+});
+test("a stray proportion on a trading/full-value item is ignored", () => {
+  approx(Z.totalInvestments([{ id: 1, treatment: "trading", value: 1000, zakatablePct: 25 }]).zakatable, 1000);
+  approx(Z.totalInvestments([{ id: 1, treatment: "longTermFull", value: 1000, zakatablePct: 25 }]).zakatable, 1000);
+});
+test("unknown treatment falls back to full market value — never silently understates", () => {
+  const r = Z.totalInvestments([{ id: 1, treatment: "mystery", value: 100 }]);
+  approx(r.zakatable, 100);
+  assert.strictEqual(r.items[0].treatment, "trading");
+});
+test("mixed holdings sum and split correctly", () => {
+  const r = Z.totalInvestments([
+    { id: 1, treatment: "trading", value: 5000 },
+    { id: 2, treatment: "longTermFull", value: 3000 },
+    { id: 3, treatment: "longTermProportion", value: 10000, zakatablePct: 25 },
+  ]);
+  approx(r.zakatable, 10500);   // 5000 + 3000 + 2500
+  approx(r.excluded, 7500);
+});
+test("empty and missing item lists are fine", () => {
+  assert.strictEqual(Z.totalInvestments([]).zakatable, 0);
+  assert.strictEqual(Z.totalInvestments(undefined).zakatable, 0);
+});
+
+/* ------------------------------------------------------------------ *
+ * Pensions
+ * ------------------------------------------------------------------ */
+group("pensions — both DC positions offered; DB excluded until received");
+
+test("DC annual: pot value × the USER-entered zakatable proportion", () => {
+  const r = Z.totalPensions([{ id: 1, type: "dcAnnual", value: 40000, zakatablePct: 25 }]);
+  approx(r.zakatable, 10000);
+  approx(r.excluded, 30000);
+  assert.strictEqual(r.items[0].zakatable, true);
+});
+test("DC annual with a blank proportion: excluded and FLAGGED, never guessed", () => {
+  const r = Z.totalPensions([{ id: 1, type: "dcAnnual", value: 40000, zakatablePct: "" }]);
+  assert.strictEqual(r.zakatable, 0);
+  assert.strictEqual(r.excluded, 0);
+  assert.strictEqual(r.missingProportion, true);
+  assert.strictEqual(r.items[0].missingProportion, true);
+});
+test("DC annual proportion clamps to 100", () => {
+  const r = Z.totalPensions([{ id: 1, type: "dcAnnual", value: 40000, zakatablePct: 150 }]);
+  approx(r.zakatable, 40000);
+  assert.strictEqual(r.items[0].appliedPct, 100);
+});
+test("DC annual explicit 0% is respected", () => {
+  const r = Z.totalPensions([{ id: 1, type: "dcAnnual", value: 40000, zakatablePct: 0 }]);
+  assert.strictEqual(r.zakatable, 0);
+  approx(r.excluded, 40000);
+  assert.strictEqual(r.missingProportion, false);
+});
+test("DC deferred (zakat on access/receipt): recorded, shown excluded", () => {
+  const r = Z.totalPensions([{ id: 1, type: "dcDeferred", value: 20000 }]);
+  assert.strictEqual(r.zakatable, 0);
+  approx(r.excluded, 20000);
+  assert.strictEqual(r.items[0].zakatable, false);
+  approx(r.items[0].gbpValue, 20000); // full pot, for struck-through display
+});
+test("defined benefit: not zakatable until received — recorded, excluded", () => {
+  const r = Z.totalPensions([{ id: 1, type: "db", value: 60000 }]);
+  assert.strictEqual(r.zakatable, 0);
+  approx(r.excluded, 60000);
+  assert.strictEqual(r.items[0].zakatable, false);
+});
+test("a stray proportion on an excluded type is ignored", () => {
+  const r = Z.totalPensions([{ id: 1, type: "db", value: 60000, zakatablePct: 50 }]);
+  assert.strictEqual(r.zakatable, 0);
+  approx(r.excluded, 60000);
+});
+test("unknown type is excluded — the tool will not invent a treatment", () => {
+  const r = Z.totalPensions([{ id: 1, type: "mystery", value: 1000 }]);
+  assert.strictEqual(r.zakatable, 0);
+  approx(r.excluded, 1000);
+});
+test("mixed pots split correctly", () => {
+  const r = Z.totalPensions([
+    { id: 1, type: "dcAnnual", value: 40000, zakatablePct: 25 },
+    { id: 2, type: "dcDeferred", value: 20000 },
+    { id: 3, type: "db", value: 100000 },
+  ]);
+  approx(r.zakatable, 10000);
+  approx(r.excluded, 150000);  // 30000 remainder + 20000 + 100000
+});
+test("empty and missing item lists are fine", () => {
+  assert.strictEqual(Z.totalPensions([]).zakatable, 0);
+  assert.strictEqual(Z.totalPensions(undefined).zakatable, 0);
 });
 
 /* ------------------------------------------------------------------ *
@@ -549,6 +697,70 @@ test("a completely empty state computes zeros without throwing", () => {
   const r = Z.calculateZakat({ settings: { goldPricePerGram: 100, silverPricePerGram: 1 } });
   assert.strictEqual(r.netZakatable, 0);
   assert.strictEqual(r.zakatDue, 0);
+});
+
+group("calculateZakat — investments & pensions integration");
+
+/**
+ * Alongside (NOT replacing) the main worked example:
+ *   Cash:                                        £5,000.00
+ *   Investments: trading £2,000 + long-term-full £1,000
+ *                + 25% of £10,000 fund           £5,500.00
+ *   Pensions:    25% of £40,000 DC pot          £10,000.00
+ *                (DB scheme £60,000: excluded)
+ *   Gross = net (no debts)                      £20,500.00
+ *   Silver nisab: 612.36 × 1.20 = £734.83 — met
+ *   Zakat due: 20,500 × 2.5% = £512.50
+ */
+function investmentsPensionsState() {
+  return {
+    settings: { goldPricePerGram: 100, silverPricePerGram: 1.2, nisabBasis: "silver", fxRates: {}, timing: "lunar" },
+    cash: [{ id: 1, label: "Current account", amount: 5000, currency: "GBP" }],
+    metals: [], crypto: [], business: [], property: [],
+    investments: [
+      { id: 2, label: "Trading shares", treatment: "trading", value: 2000 },
+      { id: 3, label: "Index fund (full value)", treatment: "longTermFull", value: 1000 },
+      { id: 4, label: "Index fund (proportion)", treatment: "longTermProportion", value: 10000, zakatablePct: 25 },
+    ],
+    pensions: [
+      { id: 5, label: "Workplace DC pot", type: "dcAnnual", value: 40000, zakatablePct: 25 },
+      { id: 6, label: "Old DB scheme", type: "db", value: 60000 },
+    ],
+    debts: [],
+  };
+}
+
+test("investments and pensions feed grossZakatable", () => {
+  const r = Z.calculateZakat(investmentsPensionsState());
+  approx(r.investments.zakatable, 5500);
+  approx(r.pensions.zakatable, 10000);
+  approx(r.grossZakatable, 20500);
+});
+test("zakat due on the combined wealth, to the penny", () => {
+  const r = Z.calculateZakat(investmentsPensionsState());
+  assert.strictEqual(r.zakatDue, 512.5);
+});
+test("excluded amounts are reported, not counted", () => {
+  const r = Z.calculateZakat(investmentsPensionsState());
+  approx(r.investments.excluded, 7500);   // 75% of the proportion fund
+  approx(r.pensions.excluded, 90000);     // 30,000 DC remainder + 60,000 DB
+});
+test("a missing proportion surfaces through the summary and adds nothing", () => {
+  const state = investmentsPensionsState();
+  state.investments = [{ id: 2, treatment: "longTermProportion", value: 10000, zakatablePct: "" }];
+  state.pensions = [];
+  const r = Z.calculateZakat(state);
+  assert.strictEqual(r.investments.missingProportion, true);
+  approx(r.grossZakatable, 5000);
+});
+test("states saved before this feature (no investments/pensions keys) still compute", () => {
+  const r = Z.calculateZakat({
+    settings: { goldPricePerGram: 100, silverPricePerGram: 1 },
+    cash: [{ id: 1, amount: 1000, currency: "GBP" }],
+  });
+  assert.strictEqual(r.investments.zakatable, 0);
+  assert.strictEqual(r.pensions.zakatable, 0);
+  approx(r.grossZakatable, 1000);
 });
 
 /* ------------------------------------------------------------------ *
