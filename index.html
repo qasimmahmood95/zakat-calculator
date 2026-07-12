@@ -85,16 +85,30 @@
             <label class="flex cursor-pointer items-start gap-3 rounded-xl border border-slate-200 p-3 has-[:checked]:border-emerald-500 has-[:checked]:bg-emerald-50 dark:border-slate-700 dark:has-[:checked]:bg-emerald-900/20">
               <input type="radio" name="nisab-basis" value="silver" checked class="mt-1 accent-emerald-600" />
               <span class="text-sm">
-                <span class="font-medium">Silver — 612.36 g</span><br />
+                <span class="font-medium">Silver — <span id="nisab-silver-grams">612.36</span> g</span><br />
                 <span class="text-slate-600 dark:text-slate-400">Threshold: <span id="nisab-silver-amount" class="font-semibold">enter silver price</span></span>
               </span>
             </label>
             <label class="flex cursor-pointer items-start gap-3 rounded-xl border border-slate-200 p-3 has-[:checked]:border-emerald-500 has-[:checked]:bg-emerald-50 dark:border-slate-700 dark:has-[:checked]:bg-emerald-900/20">
               <input type="radio" name="nisab-basis" value="gold" class="mt-1 accent-emerald-600" />
               <span class="text-sm">
-                <span class="font-medium">Gold — 87.48 g</span><br />
+                <span class="font-medium">Gold — <span id="nisab-gold-grams">87.48</span> g</span><br />
                 <span class="text-slate-600 dark:text-slate-400">Threshold: <span id="nisab-gold-amount" class="font-semibold">enter gold price</span></span>
               </span>
+            </label>
+          </div>
+        </fieldset>
+
+        <fieldset class="mt-4">
+          <legend class="label">Gram convention</legend>
+          <div class="flex flex-wrap gap-x-6 gap-y-2">
+            <label class="inline-flex items-center gap-2 text-sm">
+              <input type="radio" name="nisab-convention" value="87.48" checked class="accent-emerald-600" />
+              <span>87.48&nbsp;g gold / 612.36&nbsp;g silver</span>
+            </label>
+            <label class="inline-flex items-center gap-2 text-sm">
+              <input type="radio" name="nisab-convention" value="85" class="accent-emerald-600" />
+              <span>85&nbsp;g / 595&nbsp;g</span>
             </label>
           </div>
         </fieldset>
@@ -102,8 +116,9 @@
         <div class="fiqh-note">
           <span class="khilaf">Scholarly difference</span>
           The nisab is the minimum wealth at which zakat becomes due: 87.48&nbsp;g of gold or 612.36&nbsp;g of
-          silver. (Some institutions convert the classical measures as 85&nbsp;g / 595&nbsp;g — a small difference
-          in gram conversion, flagged for completeness.) For mixed wealth (cash, crypto, business assets), many
+          silver on the default convention (4.374&nbsp;g per mithqal). Some institutions convert the classical
+          measures as 85&nbsp;g / 595&nbsp;g instead — a difference in gram conversion, selectable above; both
+          are in respectable use. For mixed wealth (cash, crypto, business assets), many
           scholars advise the <strong>silver basis</strong>: it is the lower threshold, so zakat becomes due
           sooner — seen as more cautious for the payer and more beneficial to recipients. Others prefer the gold
           basis as historically more stable in value. Both are computed above; the choice is yours.

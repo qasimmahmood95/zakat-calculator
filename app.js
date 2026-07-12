@@ -32,6 +32,7 @@
         goldPricePerGram: "",
         silverPricePerGram: "",
         nisabBasis: "silver",
+        nisabConvention: "87.48",
         fxRates: { USD: "", EUR: "", AED: "" },
         hawlDate: "",
         timing: "lunar",
@@ -407,9 +408,9 @@
       '<div class="mt-4 rounded-xl bg-slate-100 p-3 dark:bg-slate-900/60">' +
       '<h3 class="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Nisab comparison</h3>' +
       '<dl class="mt-1 space-y-1 text-sm">' +
-      '<div class="flex justify-between"><dt>Silver (612.36 g)' + (r.nisab.basis === "silver" ? basisTag : "") + "</dt><dd>" +
+      '<div class="flex justify-between"><dt>Silver (' + r.nisab.silverGrams + " g)" + (r.nisab.basis === "silver" ? basisTag : "") + "</dt><dd>" +
       (r.nisab.silver === null ? '<span class="text-amber-600 dark:text-amber-400">enter silver price</span>' : GBP.format(r.nisab.silver)) + "</dd></div>" +
-      '<div class="flex justify-between"><dt>Gold (87.48 g)' + (r.nisab.basis === "gold" ? basisTag : "") + "</dt><dd>" +
+      '<div class="flex justify-between"><dt>Gold (' + r.nisab.goldGrams + " g)" + (r.nisab.basis === "gold" ? basisTag : "") + "</dt><dd>" +
       (r.nisab.gold === null ? '<span class="text-amber-600 dark:text-amber-400">enter gold price</span>' : GBP.format(r.nisab.gold)) + "</dd></div></dl>";
     if (r.meetsNisab === null) {
       html += '<p class="mt-2 text-xs text-amber-700 dark:text-amber-300">Enter the ' + r.nisab.basis + " price in Settings to compare your wealth with the nisab.</p>";
@@ -441,6 +442,8 @@
     // Settings-panel niceties driven by the same calculation.
     document.getElementById("nisab-silver-amount").textContent = r.nisab.silver === null ? "enter silver price" : GBP.format(r.nisab.silver);
     document.getElementById("nisab-gold-amount").textContent = r.nisab.gold === null ? "enter gold price" : GBP.format(r.nisab.gold);
+    document.getElementById("nisab-silver-grams").textContent = r.nisab.silverGrams;
+    document.getElementById("nisab-gold-grams").textContent = r.nisab.goldGrams;
 
     // Prefer the true Hijri anniversary (Umm al-Qura via Intl); fall back to
     // the 354-day approximation only where the calendar is unsupported.
@@ -500,6 +503,12 @@
         refresh();
       });
     });
+    document.querySelectorAll('input[name="nisab-convention"]').forEach(function (radio) {
+      radio.addEventListener("change", function (e) {
+        state.settings.nisabConvention = e.target.value;
+        refresh();
+      });
+    });
   }
 
   function populateSettings() {
@@ -514,6 +523,9 @@
     });
     document.querySelectorAll('input[name="timing"]').forEach(function (radio) {
       radio.checked = radio.value === state.settings.timing;
+    });
+    document.querySelectorAll('input[name="nisab-convention"]').forEach(function (radio) {
+      radio.checked = radio.value === state.settings.nisabConvention;
     });
   }
 

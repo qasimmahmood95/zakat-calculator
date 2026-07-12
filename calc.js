@@ -42,6 +42,16 @@
   const NISAB_SILVER_GRAMS = 612.36;
 
   /**
+   * Both gram conventions, keyed by their gold figure. "87.48" (4.374 g per
+   * mithqal) is the default; "85" (4.25 g per mithqal) is offered as a
+   * selectable alternative since both are in respectable institutional use.
+   */
+  const NISAB_CONVENTIONS = {
+    "87.48": { gold: 87.48, silver: 612.36 },
+    "85": { gold: 85, silver: 595 },
+  };
+
+  /**
    * Length of the lunar (Hijri) year in days.
    * 12 lunar months average 354.367 days (354 days 8h 48m). A civil Hijri
    * year is 354 or 355 days. Used for the "next anniversary" estimate and
@@ -315,13 +325,18 @@
    * Both nisab thresholds in GBP, from user-supplied prices per gram.
    * Returns null for a threshold whose price is missing — the UI must then
    * ask for the price rather than compare against a fabricated number.
+   * `convention` selects the gram convention ("87.48" or "85"); anything
+   * unrecognised falls back to the default rather than throwing.
    */
-  function nisabThresholds(goldPricePerGram, silverPricePerGram) {
+  function nisabThresholds(goldPricePerGram, silverPricePerGram, convention) {
+    const grams = NISAB_CONVENTIONS[convention] || NISAB_CONVENTIONS["87.48"];
     const gold = toNumber(goldPricePerGram);
     const silver = toNumber(silverPricePerGram);
     return {
-      gold: gold > 0 ? NISAB_GOLD_GRAMS * gold : null,
-      silver: silver > 0 ? NISAB_SILVER_GRAMS * silver : null,
+      gold: gold > 0 ? grams.gold * gold : null,
+      silver: silver > 0 ? grams.silver * silver : null,
+      goldGrams: grams.gold,
+      silverGrams: grams.silver,
     };
   }
 
@@ -479,7 +494,8 @@
     // Personal deductions cannot push zakatable wealth below zero.
     const netZakatable = Math.max(0, grossZakatable - debts.deductible);
 
-    const thresholds = nisabThresholds(goldPrice, silverPrice);
+    const convention = NISAB_CONVENTIONS[s.nisabConvention] ? s.nisabConvention : "87.48";
+    const thresholds = nisabThresholds(goldPrice, silverPrice, convention);
     const basis = s.nisabBasis === "gold" ? "gold" : "silver";
     const applied = thresholds[basis];
 
@@ -504,7 +520,15 @@
       grossZakatable: grossZakatable,
       totalDeductions: debts.deductible,
       netZakatable: netZakatable,
-      nisab: { gold: thresholds.gold, silver: thresholds.silver, basis: basis, applied: applied },
+      nisab: {
+        gold: thresholds.gold,
+        silver: thresholds.silver,
+        goldGrams: thresholds.goldGrams,
+        silverGrams: thresholds.silverGrams,
+        convention: convention,
+        basis: basis,
+        applied: applied,
+      },
       meetsNisab: meetsNisab,
       rate: rate,
       zakatDue: zakatDue,
@@ -514,6 +538,7 @@
   return {
     NISAB_GOLD_GRAMS: NISAB_GOLD_GRAMS,
     NISAB_SILVER_GRAMS: NISAB_SILVER_GRAMS,
+    NISAB_CONVENTIONS: NISAB_CONVENTIONS,
     LUNAR_YEAR_DAYS: LUNAR_YEAR_DAYS,
     RATE_LUNAR: RATE_LUNAR,
     RATE_GREGORIAN: RATE_GREGORIAN,
