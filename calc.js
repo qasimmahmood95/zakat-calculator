@@ -326,16 +326,123 @@
   }
 
   /**
-   * Estimate the next zakat anniversary: the given date plus 354 days.
-   * A true Hijri year is 354 or 355 days; a proper Hijri-calendar conversion
-   * is on the roadmap. Input/output are ISO "YYYY-MM-DD" strings; parsing is
-   * done in UTC so the result does not shift with the user's timezone.
-   * Returns null for missing/invalid input.
+   * Hijri calendar support, via the JavaScript built-in Umm al-Qura calendar
+   * (`Intl.DateTimeFormat` with `islamic-umalqura`) — no dependency, works in
+   * Node and every modern browser.
+   *
+   * Integrity note (surfaced in the UI): Umm al-Qura is a *calculated* civil
+   * calendar. Actual moon sighting in your locality can differ from it by a
+   * day or two, so dates shown from it are a strong estimate, not a ruling
+   * on when your hawl completes.
+   *
+   * All Hijri functions parse ISO "YYYY-MM-DD" input in UTC (so results do
+   * not shift with the user's timezone) and return null on invalid input or
+   * when the environment lacks the calendar — callers must fall back (the UI
+   * falls back to addLunarYear) rather than assume support.
    */
-  function addLunarYear(isoDate) {
+
+  function parseIsoUtc(isoDate) {
     if (!isoDate || !/^\d{4}-\d{2}-\d{2}$/.test(isoDate)) return null;
     const d = new Date(isoDate + "T00:00:00Z");
-    if (isNaN(d.getTime())) return null;
+    return isNaN(d.getTime()) ? null : d;
+  }
+
+  function hijriFormatter(options) {
+    return new Intl.DateTimeFormat(
+      "en-u-ca-islamic-umalqura",
+      Object.assign({ timeZone: "UTC" }, options)
+    );
+  }
+
+  /**
+   * The Hijri (Umm al-Qura) date of a Gregorian ISO date, as numbers:
+   * { year, month (1–12), day }. Returns null on invalid input or missing
+   * calendar support.
+   */
+  function hijriParts(isoDate) {
+    const d = parseIsoUtc(isoDate);
+    if (!d) return null;
+    try {
+      const parts = hijriFormatter({ year: "numeric", month: "numeric", day: "numeric" }).formatToParts(d);
+      const num = function (type) {
+        const p = parts.find(function (x) { return x.type === type; });
+        return p ? parseInt(p.value, 10) : NaN;
+      };
+      const out = { year: num("year"), month: num("month"), day: num("day") };
+      if (![out.year, out.month, out.day].every(Number.isFinite)) return null;
+      return out;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  /**
+   * Human-readable Hijri date, e.g. "27 Muharram 1448 AH".
+   * Assembled from parts so the ordering is stable across locales/engines.
+   */
+  function formatHijri(isoDate) {
+    const d = parseIsoUtc(isoDate);
+    if (!d) return null;
+    try {
+      const parts = hijriFormatter({ year: "numeric", month: "long", day: "numeric" }).formatToParts(d);
+      const get = function (type) {
+        const p = parts.find(function (x) { return x.type === type; });
+        return p ? p.value : null;
+      };
+      const day = get("day"), month = get("month"), year = get("year");
+      if (!day || !month || !year) return null;
+      return day + " " + month + " " + year + " AH";
+    } catch (e) {
+      return null;
+    }
+  }
+
+  /**
+   * The TRUE next zakat anniversary: the same Hijri day and month in the
+   * following Hijri year, converted back to a Gregorian ISO date.
+   *
+   * Intl can only convert Gregorian→Hijri, so the reverse is found by
+   * scanning Gregorian dates 340–390 days ahead (a Hijri year is 354 or 355
+   * days, so the window comfortably brackets the target month) for the one
+   * whose Hijri representation matches.
+   *
+   * Day-30 edge case: if the anniversary falls on the 30th of a month that
+   * has only 29 days in the following year, the last existing day of that
+   * month (the 29th) is used — the anniversary cannot land in a different
+   * month. Returns null when the calendar is unavailable.
+   */
+  function nextLunarAnniversary(isoDate) {
+    const start = hijriParts(isoDate);
+    const base = parseIsoUtc(isoDate);
+    if (!start || !base) return null;
+    const targetYear = start.year + 1;
+    let lastDayOfMonthIso = null;
+    let lastDaySeen = 0;
+    for (let offset = 340; offset <= 390; offset++) {
+      const d = new Date(base.getTime());
+      d.setUTCDate(d.getUTCDate() + offset);
+      const iso = d.toISOString().slice(0, 10);
+      const h = hijriParts(iso);
+      if (!h) return null;
+      if (h.year !== targetYear || h.month !== start.month) continue;
+      if (h.day === start.day) return iso;
+      if (h.day > lastDaySeen) {
+        lastDaySeen = h.day;
+        lastDayOfMonthIso = iso;
+      }
+    }
+    return lastDayOfMonthIso;
+  }
+
+  /**
+   * Approximate next anniversary: the given date plus 354 days. Kept as the
+   * FALLBACK for environments without Intl calendar support — prefer
+   * nextLunarAnniversary. Parsing is done in UTC so the result does not
+   * shift with the user's timezone. Returns null for missing/invalid input.
+   */
+  function addLunarYear(isoDate) {
+    const d = parseIsoUtc(isoDate);
+    if (!d) return null;
     d.setUTCDate(d.getUTCDate() + 354);
     return d.toISOString().slice(0, 10);
   }
@@ -424,6 +531,9 @@
     totalProperty: totalProperty,
     totalDeductions: totalDeductions,
     nisabThresholds: nisabThresholds,
+    hijriParts: hijriParts,
+    formatHijri: formatHijri,
+    nextLunarAnniversary: nextLunarAnniversary,
     addLunarYear: addLunarYear,
     calculateZakat: calculateZakat,
   };

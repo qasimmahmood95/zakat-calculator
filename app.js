@@ -442,10 +442,20 @@
     document.getElementById("nisab-silver-amount").textContent = r.nisab.silver === null ? "enter silver price" : GBP.format(r.nisab.silver);
     document.getElementById("nisab-gold-amount").textContent = r.nisab.gold === null ? "enter gold price" : GBP.format(r.nisab.gold);
 
-    const next = Z.addLunarYear(state.settings.hawlDate);
-    document.getElementById("next-anniversary").textContent = next
-      ? "Next lunar anniversary ≈ " + next + " (354 days — a Hijri year is 354–355 days)."
-      : "Pick the date your wealth first reached nisab, or your usual zakat date.";
+    // Prefer the true Hijri anniversary (Umm al-Qura via Intl); fall back to
+    // the 354-day approximation only where the calendar is unsupported.
+    const hawl = state.settings.hawlDate;
+    const exact = Z.nextLunarAnniversary(hawl);
+    const nextEl = document.getElementById("next-anniversary");
+    if (exact) {
+      nextEl.textContent =
+        "That is " + Z.formatHijri(hawl) + ". Next anniversary: " + exact + " (" + Z.formatHijri(exact) + ").";
+    } else {
+      const approx = Z.addLunarYear(hawl);
+      nextEl.textContent = approx
+        ? "Next lunar anniversary ≈ " + approx + " (354-day approximation — this browser lacks Hijri calendar support)."
+        : "Pick the date your wealth first reached nisab, or your usual zakat date.";
+    }
 
     document.getElementById("gregorian-warning").classList.toggle("hidden", state.settings.timing !== "gregorian");
 
