@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="color-scheme" content="light dark" />
+  <meta name="description" content="A free, private zakat calculator for UK Muslims. All calculations run in your browser — no accounts, no analytics, no data transmitted. Educational tool, not a fatwa." />
+  <title>Zakat Calculator — private, in-browser, UK-focused</title>
+
+  <!-- Set the theme before first paint to avoid a flash of the wrong mode. -->
+  <script>
+    (function () {
+      var stored = null;
+      try { stored = localStorage.getItem("zakat-theme"); } catch (e) {}
+      var dark = stored ? stored === "dark" : window.matchMedia("(prefers-color-scheme: dark)").matches;
+      if (dark) document.documentElement.classList.add("dark");
+    })();
+  </script>
+
+  <!--
+    Committed Tailwind build (source: styles.src.css, rebuild: npm run
+    build:css). No CDN — this page makes ZERO network requests.
+  -->
+  <link rel="stylesheet" href="styles.css" />
+</head>
+
+<body class="min-h-screen bg-slate-50 text-slate-900 antialiased dark:bg-slate-900 dark:text-slate-100">
+
+  <header class="mx-auto max-w-6xl px-4 pb-2 pt-6 sm:px-6">
+    <div class="flex flex-wrap items-start justify-between gap-3">
+      <div>
+        <h1 class="text-2xl font-bold tracking-tight sm:text-3xl">Zakat Calculator</h1>
+        <p class="mt-1 text-sm text-slate-600 dark:text-slate-400">
+          UK-focused &middot; modern asset types &middot; runs entirely in your browser
+        </p>
+      </div>
+      <div class="flex items-center gap-2">
+        <span class="hidden rounded-full border border-emerald-600/30 bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-800 sm:inline-block dark:border-emerald-500/30 dark:bg-emerald-900/30 dark:text-emerald-200"
+              title="No accounts, no analytics, no network requests with your data.">
+          &#128274; Nothing you enter leaves your browser
+        </span>
+        <button id="theme-toggle" type="button" aria-pressed="false"
+                class="no-print rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 dark:border-slate-600 dark:bg-slate-800 dark:hover:bg-slate-700">
+          <span class="dark:hidden" aria-hidden="true">&#127769;</span><span class="hidden dark:inline" aria-hidden="true">&#9728;&#65039;</span>
+          <span class="sr-only">Toggle dark mode</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Prominent disclaimer -->
+    <div role="note" class="mt-4 rounded-xl border-l-4 border-amber-500 bg-amber-50 p-4 text-sm leading-relaxed text-amber-900 dark:bg-amber-950/40 dark:text-amber-100">
+      <strong>Educational tool — not a fatwa.</strong> This calculator applies commonly held positions and
+      clearly flags every rule on which scholars differ. It cannot weigh your personal circumstances.
+      For rulings specific to your situation and madhhab, consult a qualified scholar.
+    </div>
+  </header>
+
+  <main class="mx-auto grid max-w-6xl gap-6 px-4 py-6 sm:px-6 lg:grid-cols-[minmax(0,1fr)_360px]">
+
+    <!-- ============================ FORM COLUMN ============================ -->
+    <div class="space-y-6">
+
+      <!-- Settings -->
+      <section class="card" aria-labelledby="h-settings">
+        <h2 id="h-settings" class="text-lg font-semibold">Settings — nisab, currencies &amp; your zakat date</h2>
+
+        <div class="mt-4 grid gap-4 sm:grid-cols-2">
+          <div>
+            <label class="label" for="gold-price">Gold price (&pound; per gram of pure gold)</label>
+            <input class="input" id="gold-price" type="number" min="0" step="any" inputmode="decimal" placeholder="e.g. 100.00 — EXAMPLE only" />
+          </div>
+          <div>
+            <label class="label" for="silver-price">Silver price (&pound; per gram of pure silver)</label>
+            <input class="input" id="silver-price" type="number" min="0" step="any" inputmode="decimal" placeholder="e.g. 1.20 — EXAMPLE only" />
+          </div>
+        </div>
+        <p class="mt-2 text-xs text-slate-500 dark:text-slate-400">
+          The placeholders are <strong>examples, not live prices</strong>. Look up today&rsquo;s prices from a
+          bullion dealer or financial data source and enter them here — this tool never fetches data.
+        </p>
+
+        <fieldset class="mt-5">
+          <legend class="text-sm font-semibold">Nisab basis</legend>
+          <div class="mt-2 grid gap-2 sm:grid-cols-2">
+            <label class="flex cursor-pointer items-start gap-3 rounded-xl border border-slate-200 p-3 has-[:checked]:border-emerald-500 has-[:checked]:bg-emerald-50 dark:border-slate-700 dark:has-[:checked]:bg-emerald-900/20">
+              <input type="radio" name="nisab-basis" value="silver" checked class="mt-1 accent-emerald-600" />
+              <span class="text-sm">
+                <span class="font-medium">Silver — 612.36 g</span><br />
+                <span class="text-slate-600 dark:text-slate-400">Threshold: <span id="nisab-silver-amount" class="font-semibold">enter silver price</span></span>
+              </span>
+            </label>
+            <label class="flex cursor-pointer items-start gap-3 rounded-xl border border-slate-200 p-3 has-[:checked]:border-emerald-500 has-[:checked]:bg-emerald-50 dark:border-slate-700 dark:has-[:checked]:bg-emerald-900/20">
+              <input type="radio" name="nisab-basis" value="gold" class="mt-1 accent-emerald-600" />
+              <span class="text-sm">
+                <span class="font-medium">Gold — 87.48 g</span><br />
+                <span class="text-slate-600 dark:text-slate-400">Threshold: <span id="nisab-gold-amount" class="font-semibold">enter gold price</span></span>
+              </span>
+            </label>
+          </div>
+        </fieldset>
+
+        <div class="fiqh-note">
+          <span class="khilaf">Scholarly difference</span>
+          The nisab is the minimum wealth at which zakat becomes due: 87.48&nbsp;g of gold or 612.36&nbsp;g of
+          silver. (Some institutions convert the classical measures as 85&nbsp;g / 595&nbsp;g — a small difference
+          in gram conversion, flagged for completeness.) For mixed wealth (cash, crypto, business assets), many
+          scholars advise the <strong>silver basis</strong>: it is the lower threshold, so zakat becomes due
+          sooner — seen as more cautious for the payer and more beneficial to recipients. Others prefer the gold
+          basis as historically more stable in value. Both are computed above; the choice is yours.
+          Commonly held view — consult a scholar for your madhhab.
+        </div>
+
+        <h3 class="mt-6 text-sm font-semibold">Exchange rates (&pound; per 1 unit)</h3>
+        <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">Only needed if you add cash in these currencies. Placeholders are examples only.</p>
+        <div class="mt-2 grid grid-cols-3 gap-3">
+          <div>
+            <label class="label" for="fx-usd">USD &rarr; GBP</label>
+            <input class="input" id="fx-usd" type="number" min="0" step="any" inputmode="decimal" placeholder="e.g. 0.79" />
+          </div>
+          <div>
+            <label class="label" for="fx-eur">EUR &rarr; GBP</label>
+            <input class="input" id="fx-eur" type="number" min="0" step="any" inputmode="decimal" placeholder="e.g. 0.85" />
+          </div>
+          <div>
+            <label class="label" for="fx-aed">AED &rarr; GBP</label>
+            <input class="input" id="fx-aed" type="number" min="0" step="any" inputmode="decimal" placeholder="e.g. 0.21" />
+          </div>
+        </div>
+
+        <h3 class="mt-6 text-sm font-semibold">Your zakat date (hawl)</h3>
+        <div class="mt-2 grid gap-4 sm:grid-cols-2">
+          <div>
+            <label class="label" for="hawl-date">Zakat anniversary</label>
+            <input class="input" id="hawl-date" type="date" />
+            <p id="next-anniversary" class="mt-1 text-xs text-slate-500 dark:text-slate-400"></p>
+          </div>
+          <fieldset>
+            <legend class="label">How do you time your zakat year?</legend>
+            <label class="flex items-start gap-2 text-sm">
+              <input type="radio" name="timing" value="lunar" checked class="mt-1 accent-emerald-600" />
+              <span>Lunar (Hijri) anniversary — rate <strong>2.5%</strong></span>
+            </label>
+            <label class="mt-2 flex items-start gap-2 text-sm">
+              <input type="radio" name="timing" value="gregorian" class="mt-1 accent-emerald-600" />
+              <span>Fixed Gregorian date each year — adjusted rate <strong>&asymp;2.577%</strong></span>
+            </label>
+            <p id="gregorian-warning" class="mt-2 hidden rounded-lg bg-amber-100 p-2 text-xs text-amber-900 dark:bg-amber-500/15 dark:text-amber-200">
+              &#9888;&#65039; A Gregorian year is ~11 days longer than the lunar year, so a fixed Gregorian date
+              means slightly fewer zakat payments over a lifetime. The 2.577% rate
+              (2.5% &times; 365.25&nbsp;&divide;&nbsp;354.37) is an approximation used by some institutions —
+              tracking a Hijri date is preferable.
+            </p>
+          </fieldset>
+        </div>
+
+        <div class="fiqh-note">
+          Zakat falls due once wealth at or above the nisab has been held for one <strong>lunar year
+          (hawl) &asymp; 354 days</strong> — about 11 days shorter than the Gregorian year.
+          <span class="khilaf">Scholarly difference</span> The approach applied here assesses whatever you hold
+          <em>on your zakat date</em>, even if balances fluctuated during the year (provided nisab was held at
+          both ends of the year); some schools hold that dropping below nisab mid-year restarts the hawl.
+          Commonly held view — consult a scholar for your madhhab.
+        </div>
+      </section>
+
+      <!-- Cash -->
+      <section class="card" aria-labelledby="h-cash">
+        <div class="flex items-center justify-between gap-2">
+          <h2 id="h-cash" class="text-lg font-semibold">1 &middot; Cash &amp; bank balances</h2>
+          <button type="button" class="btn-add no-print" data-add="cash">+ Add account</button>
+        </div>
+        <p class="mt-1 text-sm text-slate-600 dark:text-slate-400">
+          Current and savings accounts, cash in hand, e-money balances. Foreign-currency balances are converted
+          with the rates you entered in Settings.
+        </p>
+        <div class="mt-3 space-y-3" id="items-cash" data-items="cash"></div>
+      </section>
+
+      <!-- Gold & silver -->
+      <section class="card" aria-labelledby="h-metals">
+        <div class="flex items-center justify-between gap-2">
+          <h2 id="h-metals" class="text-lg font-semibold">2 &middot; Gold &amp; silver</h2>
+          <button type="button" class="btn-add no-print" data-add="metals">+ Add item</button>
+        </div>
+        <p class="mt-1 text-sm text-slate-600 dark:text-slate-400">
+          Enter by weight and purity (valued at metal content using your prices above), or enter a value directly.
+        </p>
+        <div class="mt-3 space-y-3" id="items-metals" data-items="metals"></div>
+        <div class="fiqh-note">
+          <strong>UK gold coins:</strong> legal-tender coins such as Sovereigns and Britannias are exempt from
+          Capital Gains Tax — that is a UK tax rule with <em>no bearing on zakat</em>. They remain fully
+          zakatable at their gold value.
+          <br /><span class="khilaf">Scholarly difference</span>
+          <strong>Personal-use jewellery:</strong> the Hanafi school holds gold and silver zakatable however
+          used; the majority of other schools exempt jewellery in customary personal use. This tool counts
+          whatever you enter — if you follow an exemption view, leave exempt items out.
+          Consult a scholar for your madhhab.
+        </div>
+      </section>
+
+      <!-- Crypto -->
+      <section class="card" aria-labelledby="h-crypto">
+        <div class="flex items-center justify-between gap-2">
+          <h2 id="h-crypto" class="text-lg font-semibold">3 &middot; Cryptoassets</h2>
+          <button type="button" class="btn-add no-print" data-add="crypto">+ Add asset</button>
+        </div>
+        <p class="mt-1 text-sm text-slate-600 dark:text-slate-400">Bitcoin and other cryptoassets: quantity &times; price in GBP.</p>
+        <div class="mt-3 space-y-3" id="items-crypto" data-items="crypto"></div>
+        <div class="fiqh-note">
+          <strong>&#9888;&#65039; Prices are your responsibility.</strong> This tool makes <em>no API calls</em>
+          and never fetches prices. Enter each asset&rsquo;s GBP market price yourself
+          <span id="crypto-date-note">as at your zakat date</span> and verify it against a source you trust.
+          <br /><span class="khilaf">Scholarly difference</span>
+          The commonly held contemporary view treats cryptoassets held as investments as zakatable wealth at
+          full market value. Staking, lending and token classifications raise further questions —
+          consult a scholar for your madhhab.
+        </div>
+      </section>
+
+      <!-- Business -->
+      <section class="card" aria-labelledby="h-business">
+        <div class="flex items-center justify-between gap-2">
+          <h2 id="h-business" class="text-lg font-semibold">4 &middot; Business assets (limited company)</h2>
+          <button type="button" class="btn-add no-print" data-add="business">+ Add line</button>
+        </div>
+        <p class="mt-1 text-sm text-slate-600 dark:text-slate-400">
+          Add the company&rsquo;s zakatable current assets — cash, trade receivables, stock-in-trade — and its
+          short-term liabilities, each scaled by your ownership&nbsp;%.
+        </p>
+        <div class="mt-3 space-y-3" id="items-business" data-items="business"></div>
+        <div class="fiqh-note">
+          <span class="khilaf">Scholarly difference</span>
+          A limited company is a separate legal person, but your zakat obligation is personal: the approach
+          applied here (commonly held for owner-managed companies) is
+          <strong>your ownership&nbsp;% &times; (cash + receivables + stock &minus; short-term liabilities)</strong>.
+          Fixed assets — equipment, vehicles, premises — are not zakatable. Scholars differ on valuing
+          shareholdings this way versus at market value (especially for passive/listed holdings, which this
+          section is not designed for), and on doubtful receivables (commonly: zakat on good debts annually;
+          on doubtful debts when actually recovered). Consult a scholar for your madhhab.
+        </div>
+      </section>
+
+      <!-- Property -->
+      <section class="card" aria-labelledby="h-property">
+        <div class="flex items-center justify-between gap-2">
+          <h2 id="h-property" class="text-lg font-semibold">5 &middot; Investment property</h2>
+          <button type="button" class="btn-add no-print" data-add="property">+ Add entry</button>
+        </div>
+        <div class="mt-3 space-y-3" id="items-property" data-items="property"></div>
+        <div class="fiqh-note">
+          <strong>Rental income</strong> still held at your zakat date is zakatable like any other cash —
+          <em>take care not to double-count rent already included in a bank balance in section 1</em>.
+          The <strong>property itself</strong> is generally not zakatable when held to generate income;
+          property bought <strong>with the intention of resale</strong> is trade stock, zakatable at market value.
+          <span class="khilaf">Scholarly difference</span>
+          Where the intention was mixed or changed after purchase, scholars differ on if and when the property
+          becomes trade stock. Commonly held view — consult a scholar for your madhhab.
+        </div>
+      </section>
+
+      <!-- Debts -->
+      <section class="card" aria-labelledby="h-debts">
+        <div class="flex items-center justify-between gap-2">
+          <h2 id="h-debts" class="text-lg font-semibold">6 &middot; Debts &amp; deductions</h2>
+          <button type="button" class="btn-add no-print" data-add="debts">+ Add debt</button>
+        </div>
+        <p class="mt-1 text-sm text-slate-600 dark:text-slate-400">Money you owe. Choose the type carefully — it decides whether the amount is deducted.</p>
+        <div class="mt-3 space-y-3" id="items-debts" data-items="debts"></div>
+        <div class="fiqh-note">
+          <span class="khilaf">Scholarly difference</span>
+          <strong>Position applied (commonly held view):</strong> liabilities due within the coming year —
+          bills, tax due, credit cards, and the <em>next 12 months of instalments</em> on long-term debt such
+          as a mortgage — are deductible. The remaining long-term balance is <strong>not</strong> deducted,
+          since it is not a present claim on your wealth. <strong>Other position:</strong> some scholars allow
+          deducting the full outstanding balance of long-term debt; this tool shows that figure in the
+          breakdown but does not deduct it. Consult a scholar for your madhhab.
+        </div>
+      </section>
+
+      <!-- Methodology / privacy -->
+      <section class="card" aria-labelledby="h-method">
+        <h2 id="h-method" class="text-lg font-semibold">Methodology &amp; privacy</h2>
+        <ul class="mt-3 list-disc space-y-1 pl-5 text-sm text-slate-700 dark:text-slate-300">
+          <li>Every rule involving scholarly difference is flagged <span class="khilaf">Scholarly difference</span> with the applied position stated as a commonly held view — no named-scholar attributions, no fabricated citations.</li>
+          <li>All arithmetic lives in <code class="rounded bg-slate-100 px-1 dark:bg-slate-700">calc.js</code>, unit-tested with plain Node — see the README for the positions taken and why.</li>
+          <li><strong>Privacy:</strong> no accounts, no analytics, no cookies — and the page makes <strong>no network requests at all</strong>. Your figures are autosaved to your browser&rsquo;s local storage only (clear them with the button in the summary panel).</li>
+        </ul>
+      </section>
+    </div>
+
+    <!-- ============================ RESULTS COLUMN ============================ -->
+    <aside aria-label="Zakat summary" class="lg:sticky lg:top-6 lg:self-start">
+      <div class="card" id="results">
+        <h2 class="text-lg font-semibold">Your zakat summary</h2>
+        <p class="hidden text-xs text-slate-500 print:block" id="print-date-line"></p>
+        <div id="results-body" class="mt-3 text-sm"><!-- rendered by app.js --></div>
+        <div class="mt-4 flex flex-wrap gap-2 no-print">
+          <button id="print-btn" type="button"
+                  class="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500/60">
+            &#128424;&#65039; Print summary
+          </button>
+          <button id="clear-btn" type="button"
+                  class="rounded-lg border border-red-300 px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-red-400/50 dark:border-red-800 dark:text-red-400 dark:hover:bg-red-950/40">
+            Clear all data
+          </button>
+        </div>
+        <p class="mt-3 text-xs text-slate-500 dark:text-slate-400">
+          Educational tool — not a fatwa. Verify prices and consult a scholar before paying.
+        </p>
+      </div>
+    </aside>
+  </main>
+
+  <footer class="mx-auto max-w-6xl px-4 pb-10 pt-2 text-xs text-slate-500 sm:px-6 dark:text-slate-400">
+    <p>
+      Open source under the MIT licence. Educational tool — not a fatwa; the maintainer is not your mufti.
+      No data leaves your browser: no analytics, no tracking, no transmission of your figures.
+    </p>
+  </footer>
+
+  <script src="calc.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

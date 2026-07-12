@@ -1,0 +1,3 @@
+# Local tooling / editor state
+.claude/
+node_modules/

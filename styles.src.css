@@ -1,0 +1,27 @@
+/*
+ * styles.src.css — source stylesheet, compiled to styles.css (committed).
+ * This replaces the Tailwind Play CDN so the page makes ZERO network
+ * requests. Rebuild with: npm run build:css
+ */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer components {
+  .card { @apply rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6 dark:border-slate-700 dark:bg-slate-800/60; }
+  .label { @apply mb-1 block text-xs font-medium text-slate-600 dark:text-slate-300; }
+  .input { @apply w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder-slate-400 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/40 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100 dark:placeholder-slate-500; }
+  .btn-add { @apply inline-flex items-center gap-1 rounded-lg border border-emerald-600/40 bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-800 hover:bg-emerald-100 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 dark:border-emerald-500/40 dark:bg-emerald-900/30 dark:text-emerald-200 dark:hover:bg-emerald-900/50; }
+  .btn-remove { @apply rounded-lg border border-transparent px-2 py-2 text-sm text-slate-400 hover:border-red-300 hover:text-red-600 focus:outline-none focus:ring-2 focus:ring-red-400/50 dark:hover:border-red-700 dark:hover:text-red-400; }
+  .fiqh-note { @apply mt-3 rounded-lg border-l-4 border-sky-400 bg-sky-50 p-3 text-sm leading-relaxed text-slate-700 dark:border-sky-500 dark:bg-sky-950/40 dark:text-slate-300; }
+  .khilaf { @apply mr-1 inline-block rounded bg-amber-200/70 px-1.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-amber-900 dark:bg-amber-500/20 dark:text-amber-300; }
+  .item-row { @apply grid grid-cols-2 items-end gap-2 rounded-xl border border-slate-200 p-3 sm:grid-cols-[1fr_auto] dark:border-slate-700; }
+}
+
+@media print {
+  .no-print { display: none !important; }
+  body { background: white !important; }
+  .card { box-shadow: none !important; border-color: #cbd5e1 !important; }
+  main { display: block !important; }
+  #results { position: static !important; max-width: none !important; }
+}
