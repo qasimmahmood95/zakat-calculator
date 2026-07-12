@@ -350,12 +350,14 @@
     }
 
     // --- Metals
+    // calc.js returns one result item per input item in the same order, so
+    // the source of each line is simply the state item at the same index.
     const metalLines = r.metals.items
-      .filter(function (it, i) { return !isBlankItem("metals", state.metals[i]); })
-      .map(function (it, idx) {
+      .map(function (it, i) {
+        const src = state.metals[i];
+        if (isBlankItem("metals", src)) return "";
         anyItems = true;
-        const src = state.metals.filter(function (m, i) { return !isBlankItem("metals", state.metals[i]); })[idx];
-        const detail = src && src.entryMode !== "value"
+        const detail = src.entryMode !== "value"
           ? esc(NUM.format(Z.toNumber(src.grams)) + " g · " + src.purity + (src.metal === "silver" ? " silver" : "k gold"))
           : "entered value";
         return breakdownLine(esc(it.label || (it.metal === "silver" ? "Silver" : "Gold")), detail, GBP.format(it.gbpValue));
@@ -364,11 +366,11 @@
 
     // --- Crypto
     const cryptoLines = r.crypto.items
-      .filter(function (it, i) { return !isBlankItem("crypto", state.crypto[i]); })
-      .map(function (it, idx) {
+      .map(function (it, i) {
+        const src = state.crypto[i];
+        if (isBlankItem("crypto", src)) return "";
         anyItems = true;
-        const src = state.crypto.filter(function (c, i) { return !isBlankItem("crypto", state.crypto[i]); })[idx];
-        const detail = src ? esc(NUM.format(Z.toNumber(src.quantity)) + " × " + GBP.format(Z.toNumber(src.price))) : "";
+        const detail = esc(NUM.format(Z.toNumber(src.quantity)) + " × " + GBP.format(Z.toNumber(src.price)));
         return breakdownLine(esc(it.label || "Cryptoasset"), detail, GBP.format(it.gbpValue));
       }).join("");
     if (cryptoLines) html += categoryBlock("Cryptoassets", GBP.format(r.crypto.total), cryptoLines);
@@ -449,6 +451,21 @@
       "</div>";
 
     document.getElementById("results-body").innerHTML = html;
+
+    // Print-only: list the positions applied so a printed summary stands on
+    // its own. Dynamic pieces (basis, gram convention, rate) come from the
+    // same calculation as the figures above.
+    document.getElementById("print-positions").innerHTML =
+      '<h3 class="mt-4 border-t border-slate-300 pt-3 text-xs font-semibold uppercase tracking-wide text-slate-500">Positions applied (commonly held views — differences are flagged in the app)</h3>' +
+      '<ul class="mt-1 list-disc space-y-1 pl-5 text-xs text-slate-600">' +
+      "<li>Nisab: " + r.nisab.basis + " basis, on the " + r.nisab.goldGrams + " g gold / " + r.nisab.silverGrams + " g silver gram convention.</li>" +
+      "<li>Rate: " + rateLabel + ". Wealth is assessed as held on the zakat date.</li>" +
+      "<li>Gold and silver valued at metal content; whether personal-use jewellery is included depends on madhhab.</li>" +
+      "<li>Business: ownership % &times; (cash + receivables + stock &minus; short-term liabilities), floored at zero.</li>" +
+      "<li>Property: rental income held at the zakat date zakatable; income-property value excluded; resale property at market value.</li>" +
+      "<li>Debts: amounts due within 12 months deducted; remaining long-term balances shown but not deducted.</li>" +
+      "<li>Zakat due rounded up to the penny. Educational tool — not a fatwa; consult a scholar for your madhhab.</li>" +
+      "</ul>";
 
     // Screen-reader announcement (persistent live region, debounced by input flow).
     document.getElementById("sr-live").textContent =
@@ -604,7 +621,7 @@
     let wasDark = false;
     window.addEventListener("beforeprint", function () {
       document.getElementById("print-date-line").textContent =
-        "Generated " + new Date().toISOString().slice(0, 10) + " from figures entered by the user. Educational tool — not a fatwa.";
+        "Generated " + new Date().toISOString().slice(0, 10) + " from figures entered by the user · qasimmahmood95.github.io/zakat-calculator";
       wasDark = document.documentElement.classList.contains("dark");
       if (wasDark) document.documentElement.classList.remove("dark");
     });

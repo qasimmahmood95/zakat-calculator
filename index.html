@@ -58,7 +58,7 @@
   <main class="mx-auto grid max-w-6xl gap-6 px-4 py-6 sm:px-6 lg:grid-cols-[minmax(0,1fr)_360px]">
 
     <!-- ============================ FORM COLUMN ============================ -->
-    <div class="space-y-6">
+    <div class="space-y-6 print:hidden">
 
       <!-- Settings -->
       <section class="card" aria-labelledby="h-settings">
@@ -311,6 +311,7 @@
         <h2 class="text-lg font-semibold">Your zakat summary</h2>
         <p class="hidden text-xs text-slate-500 print:block" id="print-date-line"></p>
         <div id="results-body" class="mt-3 text-sm"><!-- rendered by app.js --></div>
+        <div id="print-positions" class="hidden print:block"><!-- rendered by app.js, print only --></div>
         <div class="mt-4 flex flex-wrap gap-2 no-print">
           <button id="print-btn" type="button"
                   class="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500/60">
