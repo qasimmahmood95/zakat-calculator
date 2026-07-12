@@ -8,10 +8,19 @@ A free, private, single-page zakat calculator aimed at UK Muslims with modern
 asset types — multi-currency cash, gold and silver, cryptoassets, an
 owner-managed limited company, investment property, and debts.
 
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/screenshot-dark.png">
+  <img alt="The calculator with example figures entered: settings with both nisab thresholds, asset sections, and an itemised summary panel showing the zakat due" src="docs/screenshot-light.png">
+</picture>
+
+*Figures shown are the README's worked example — prices are illustrative only.*
+
 **Everything runs in your browser.** No backend, no accounts, no analytics, no
 cookies — and the page makes **no network requests at all** (the Tailwind CSS
 build is committed to the repo). Figures are autosaved to your browser's local
-storage only, and a "Clear all data" button wipes them.
+storage only, a "Clear all data" button wipes them, and you can export/import
+everything as a JSON file that stays on your device — a private year-on-year
+record.
 
 > **Educational tool — not a fatwa.** This calculator applies commonly held
 > positions and flags every rule on which scholars differ. It cannot weigh
@@ -57,7 +66,7 @@ in the UI next to the relevant input.
 
 | Topic | Position applied | Status |
 | --- | --- | --- |
-| **Nisab thresholds** | 87.48 g gold / 612.36 g silver (4.374 g per mithqal convention) | Convention differs: some institutions use 85 g / 595 g. Flagged in the UI; constants are in one place in `calc.js`. |
+| **Nisab thresholds** | 87.48 g gold / 612.36 g silver (4.374 g per mithqal convention) by default | Convention differs: some institutions use 85 g / 595 g — both are selectable in the UI, and the printout records which was used. Constants are in one place in `calc.js`. |
 | **Nisab basis for mixed wealth** | User chooses; silver is the default with a neutral note | Many scholars advise silver because it is the lower threshold — more cautious for the payer and more beneficial to recipients. Others prefer gold as historically more stable. Both thresholds are always shown. |
 | **Zakat rate** | 2.5% per lunar year | Broad agreement. |
 | **Hawl (zakat year)** | Lunar year; assessment of what is held on the zakat date, provided nisab was held at both ends of the year. The zakat date and next anniversary are shown as true Hijri dates using the built-in Umm al-Qura calendar (`Intl.DateTimeFormat`, no dependency), falling back to a 354-day approximation only where unsupported | Schools differ on whether dipping below nisab mid-year restarts the hawl — flagged. Umm al-Qura is a *calculated* calendar: local moon sighting may differ by a day or two, stated in the UI. |
@@ -95,6 +104,7 @@ styles.src.css      — stylesheet source (Tailwind directives + components)
 styles.css          — committed Tailwind build (npm run build:css)
 tailwind.config.js  — Tailwind config for the build
 .github/workflows/  — CI: runs the test suite on every push and PR
+docs/               — README screenshots
 ```
 
 The separation is deliberate: any change to a number anyone might pay zakat
@@ -105,8 +115,6 @@ on must happen in `calc.js` and be covered by a test.
 - **More currencies** — and a clearer FX-rate workflow.
 - **Pensions and listed investments** — with their khilaf treatments stated,
   to the same standard as the current sections.
-- **Printable summary polish** — dedicated print layout with the positions
-  applied listed on the printout.
 - **Localisation** — Arabic and Urdu.
 
 ## Contributing
