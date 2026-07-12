@@ -42,11 +42,13 @@
       crypto: [],
       business: [],
       property: [],
+      investments: [],
+      pensions: [],
       debts: [],
     };
   }
 
-  const SECTIONS = ["cash", "metals", "crypto", "business", "property", "debts"];
+  const SECTIONS = ["cash", "metals", "crypto", "business", "property", "investments", "pensions", "debts"];
 
   function blankItem(section) {
     switch (section) {
@@ -55,6 +57,8 @@
       case "crypto": return { id: newId(), label: "", quantity: "", price: "" };
       case "business": return { id: newId(), label: "", type: "cash", value: "", ownershipPct: 100 };
       case "property": return { id: newId(), label: "", type: "rentalIncome", value: "" };
+      case "investments": return { id: newId(), label: "", treatment: "trading", value: "", zakatablePct: "" };
+      case "pensions": return { id: newId(), label: "", type: "dcAnnual", value: "", zakatablePct: "" };
       case "debts": return { id: newId(), label: "", type: "shortTerm", amount: "" };
     }
   }
@@ -95,6 +99,8 @@
       crypto: Array.isArray(parsed.crypto) ? parsed.crypto : [],
       business: Array.isArray(parsed.business) ? parsed.business : [],
       property: Array.isArray(parsed.property) ? parsed.property : [],
+      investments: Array.isArray(parsed.investments) ? parsed.investments : [],
+      pensions: Array.isArray(parsed.pensions) ? parsed.pensions : [],
       debts: Array.isArray(parsed.debts) ? parsed.debts : [],
     };
     state.settings.fxRates = Object.assign({ USD: "", EUR: "", AED: "" }, state.settings.fxRates || {});
@@ -148,6 +154,16 @@
     rentalIncome: "Rental income held at zakat date (zakatable)",
     resale: "Property held for resale (zakatable at market value)",
     income: "Property held for income (not zakatable)",
+  };
+  const INVESTMENT_TREATMENT_LABEL = {
+    trading: "Bought to resell — full market value",
+    longTermFull: "Long-term hold — full market value",
+    longTermProportion: "Long-term hold — zakatable-assets proportion",
+  };
+  const PENSION_TYPE_LABEL = {
+    dcAnnual: "DC pot — annual zakat on entered proportion",
+    dcDeferred: "DC pot — zakat on access/receipt (not counted now)",
+    db: "Defined benefit — not zakatable until received",
   };
   const DEBT_TYPE_LABEL = {
     shortTerm: "Short-term — due within 12 months (deducted)",
@@ -269,6 +285,38 @@
     );
   }
 
+  function investmentsRow(item) {
+    let inner =
+      field("investments", item, "label", "Description", textInput("investments", item, "label", "e.g. index fund in a stocks & shares ISA")) +
+      field("investments", item, "treatment", "Treatment", selectInput("investments", item, "treatment", [
+        ["trading", "Bought to resell (full market value)"],
+        ["longTermFull", "Long-term — full market value"],
+        ["longTermProportion", "Long-term — zakatable-assets proportion"],
+      ], true)) +
+      field("investments", item, "value", "Market value (£)", numberInput("investments", item, "value", "0.00"));
+    if (item.treatment === "longTermProportion") {
+      inner += field("investments", item, "zakatablePct", "Zakatable proportion (%)",
+        numberInput("investments", item, "zakatablePct", "e.g. 25 — EXAMPLE only", 'max="100"'));
+    }
+    return rowShell("investments", item, inner);
+  }
+
+  function pensionsRow(item) {
+    let inner =
+      field("pensions", item, "label", "Description", textInput("pensions", item, "label", "e.g. workplace pension, SIPP")) +
+      field("pensions", item, "type", "Treatment", selectInput("pensions", item, "type", [
+        ["dcAnnual", "DC pot — pay annually on zakatable proportion"],
+        ["dcDeferred", "DC pot — zakat on access/receipt (not counted now)"],
+        ["db", "Defined benefit — not zakatable until received"],
+      ], true)) +
+      field("pensions", item, "value", "Current pot value (£)", numberInput("pensions", item, "value", "0.00"));
+    if (item.type === "dcAnnual") {
+      inner += field("pensions", item, "zakatablePct", "Zakatable proportion (%)",
+        numberInput("pensions", item, "zakatablePct", "e.g. 25 — EXAMPLE only", 'max="100"'));
+    }
+    return rowShell("pensions", item, inner);
+  }
+
   function debtsRow(item) {
     return rowShell("debts", item,
       field("debts", item, "label", "Description", textInput("debts", item, "label", "e.g. credit card, mortgage")) +
@@ -279,7 +327,7 @@
     );
   }
 
-  const ROW_TEMPLATE = { cash: cashRow, metals: metalsRow, crypto: cryptoRow, business: businessRow, property: propertyRow, debts: debtsRow };
+  const ROW_TEMPLATE = { cash: cashRow, metals: metalsRow, crypto: cryptoRow, business: businessRow, property: propertyRow, investments: investmentsRow, pensions: pensionsRow, debts: debtsRow };
 
   function renderSection(section) {
     const container = document.querySelector('[data-items="' + section + '"]');
@@ -297,7 +345,7 @@
 
   function isBlankItem(section, item) {
     // Skip untouched rows in the breakdown so an empty form shows a clean panel.
-    const fields = { cash: ["label", "amount"], metals: ["label", "grams", "value"], crypto: ["label", "quantity", "price"], business: ["label", "value"], property: ["label", "value"], debts: ["label", "amount"] }[section];
+    const fields = { cash: ["label", "amount"], metals: ["label", "grams", "value"], crypto: ["label", "quantity", "price"], business: ["label", "value"], property: ["label", "value"], investments: ["label", "value", "zakatablePct"], pensions: ["label", "value", "zakatablePct"], debts: ["label", "amount"] }[section];
     return fields.every(function (f) { return item[f] === "" || item[f] == null; });
   }
 
@@ -396,6 +444,63 @@
       }).join("");
     if (propertyLines) html += categoryBlock("Investment property", GBP.format(r.property.zakatable), propertyLines);
 
+    // --- Shares, funds & ISAs
+    const investmentLines = r.investments.items
+      .map(function (it, i) {
+        if (isBlankItem("investments", state.investments[i])) return "";
+        anyItems = true;
+        let detail = INVESTMENT_TREATMENT_LABEL[it.treatment];
+        if (it.treatment === "longTermProportion" && !it.missingProportion) {
+          detail += " · " + it.appliedPct + "% of " + GBP.format(it.marketValue);
+        }
+        const value = it.missingProportion
+          ? '<span class="text-amber-600 dark:text-amber-400">proportion needed</span>'
+          : GBP.format(it.gbpValue);
+        return breakdownLine(esc(it.label || "Holding"), esc(detail), value);
+      }).join("");
+    if (investmentLines) {
+      // Warn only for missing proportions on rows the user can actually see —
+      // a freshly added blank row also carries the flag but is not displayed.
+      const investmentsNeedProportion = r.investments.items.some(function (it, i) {
+        return it.missingProportion && !isBlankItem("investments", state.investments[i]);
+      });
+      let warn = "";
+      if (investmentsNeedProportion) {
+        warn = '<p class="mt-1 rounded bg-amber-100 p-2 text-xs text-amber-900 dark:bg-amber-500/15 dark:text-amber-200">&#9888;&#65039; Enter the zakatable proportion (%) for the flagged holdings — they are currently excluded. This tool never assumes a proportion.</p>';
+      }
+      html += categoryBlock("Shares, funds & ISAs", GBP.format(r.investments.zakatable), investmentLines) + warn;
+    }
+
+    // --- Pensions
+    const pensionLines = r.pensions.items
+      .map(function (it, i) {
+        if (isBlankItem("pensions", state.pensions[i])) return "";
+        anyItems = true;
+        let detail = PENSION_TYPE_LABEL[it.type];
+        if (it.type === "dcAnnual" && !it.missingProportion) {
+          detail += " · " + it.appliedPct + "% of " + GBP.format(it.potValue);
+        }
+        let value;
+        if (it.missingProportion) {
+          value = '<span class="text-amber-600 dark:text-amber-400">proportion needed</span>';
+        } else if (it.zakatable) {
+          value = GBP.format(it.gbpValue);
+        } else {
+          value = mutedValue(GBP.format(it.gbpValue)) + ' <span class="text-xs text-slate-400">not counted</span>';
+        }
+        return breakdownLine(esc(it.label || "Pension"), esc(detail), value);
+      }).join("");
+    if (pensionLines) {
+      const pensionsNeedProportion = r.pensions.items.some(function (it, i) {
+        return it.missingProportion && !isBlankItem("pensions", state.pensions[i]);
+      });
+      let warn = "";
+      if (pensionsNeedProportion) {
+        warn = '<p class="mt-1 rounded bg-amber-100 p-2 text-xs text-amber-900 dark:bg-amber-500/15 dark:text-amber-200">&#9888;&#65039; Enter the zakatable proportion (%) for the flagged pension pots — they are currently excluded. This tool never assumes a proportion.</p>';
+      }
+      html += categoryBlock("Pensions", GBP.format(r.pensions.zakatable), pensionLines) + warn;
+    }
+
     // --- Debts
     const debtLines = r.debts.items
       .filter(function (it, i) { return !isBlankItem("debts", state.debts[i]); })
@@ -464,6 +569,8 @@
       "<li>Business: ownership % &times; (cash + receivables + stock &minus; short-term liabilities), floored at zero.</li>" +
       "<li>Property: rental income held at the zakat date zakatable; income-property value excluded; resale property at market value.</li>" +
       "<li>Debts: amounts due within 12 months deducted; remaining long-term balances shown but not deducted.</li>" +
+      "<li>Shares &amp; funds: trading holdings at full market value; long-term holdings at full market value or at a user-entered zakatable-assets proportion — no proportion is ever assumed by the tool.</li>" +
+      "<li>Pensions: DC pots either zakated annually on a user-entered zakatable proportion, or excluded until access/receipt, per the user's selection; defined-benefit schemes excluded until received.</li>" +
       "<li>Zakat due rounded up to the penny. Educational tool — not a fatwa; consult a scholar for your madhhab.</li>" +
       "</ul>";
 

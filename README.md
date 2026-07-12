@@ -6,7 +6,8 @@
 
 A free, private, single-page zakat calculator aimed at UK Muslims with modern
 asset types — multi-currency cash, gold and silver, cryptoassets, an
-owner-managed limited company, investment property, and debts.
+owner-managed limited company, investment property, listed shares, funds and
+stocks-&-shares ISAs, pensions, and debts.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/screenshot-dark.png">
@@ -50,7 +51,8 @@ node calc.test.js
 ```
 
 The suite covers input sanitisation, rounding, currency conversion, metal
-purity and valuation, each asset category, nisab boundary conditions (exactly
+purity and valuation, each asset category (including investment and pension
+proportion clamping and blank-proportion exclusion), nisab boundary conditions (exactly
 at nisab, a penny below, missing prices), the lunar/Gregorian rate adjustment,
 Hijri conversion (real-world Umm al-Qura anchor dates, the true
 next-anniversary calculation, and the 30th-of-the-month edge case), and a full
@@ -78,6 +80,8 @@ in the UI next to the relevant input.
 | **Limited company (owner-managed)** | Ownership % × (cash + receivables + stock − short-term liabilities), floored at zero | A known difference area: proportional-assets versus market-value approaches, and the treatment of doubtful receivables (commonly: good debts annually, doubtful debts when recovered). The section is not designed for passive/listed holdings. Company liabilities never offset *personal* wealth (hence the floor at zero). |
 | **Investment property** | Rental income held at the zakat date: zakatable. Property held for income: not zakatable (recorded, shown as excluded). Property bought for resale: trade stock at market value | Commonly held. The mixed/changed-intention case is a difference area and is flagged. The UI warns against double-counting rent already in a bank balance. |
 | **Debts owed by you** | Deduct liabilities due within the coming year, including the next 12 months of long-term instalments; the remaining long-term balance (e.g. mortgage principal) is shown but **not** deducted | A well-known difference of opinion. The minority full-deduction position is stated in the UI, and the excluded balance appears in the breakdown so a user can take the figure to a scholar. |
+| **Listed shares, funds & ISAs** | Intention decides: holdings bought to resell are trade stock, zakatable at full market value. Long-term holdings: the user chooses per holding between full market value (the simpler, more cautious approach) and a user-entered zakatable-assets proportion | A known difference area: full-market-value versus zakatable-assets-proportion approaches for long-term holdings. Some institutions publish proxy percentages for listed funds; this tool bakes none in — the user enters their own figure, and a blank proportion excludes the holding and flags it rather than guessing. Cash ISAs and dividends already received belong with cash (the UI warns against double-counting). |
+| **Pensions** | DC pots: the user chooses per pot between annual zakat on a user-entered zakatable proportion of the pot value, and exclusion until access/receipt (recorded, shown as excluded). DB schemes: recorded but excluded until amounts are received | A significant difference area — both DC positions are stated neutrally in the UI (owned wealth invested on your behalf → annual zakat on the zakatable underlying proportion, versus no effective access until retirement → zakat when accessible/received). Employer-vs-personal contributions and unvested amounts are flagged as beyond the tool's granular scope. |
 | **Rounding** | Zakat due is rounded **up** to the penny | So rounding can never cause an underpayment. |
 
 ### Deliberately out of scope (for now)
@@ -85,10 +89,6 @@ in the UI next to the relevant input.
 Known asset types this version does not model — better to say so than to
 half-model them:
 
-- **Pensions** (workplace/SIPP) — a significant khilaf area (zakat annually on
-  the accessible/underlying value vs. on access).
-- **Listed shares, funds and ISAs** — related to, but distinct from, the
-  owner-managed business section.
 - **Money owed *to* you** (personal receivables/loans to others).
 - **Agricultural produce, livestock, and mined wealth** — different rates and
   rules entirely.
@@ -113,8 +113,6 @@ on must happen in `calc.js` and be covered by a test.
 ## Roadmap
 
 - **More currencies** — and a clearer FX-rate workflow.
-- **Pensions and listed investments** — with their khilaf treatments stated,
-  to the same standard as the current sections.
 - **Localisation** — Arabic and Urdu.
 
 ## Contributing
