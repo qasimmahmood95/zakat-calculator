@@ -43,8 +43,10 @@ node calc.test.js
 The suite covers input sanitisation, rounding, currency conversion, metal
 purity and valuation, each asset category, nisab boundary conditions (exactly
 at nisab, a penny below, missing prices), the lunar/Gregorian rate adjustment,
-and a full worked example (documented inside the test file) whose expected
-zakat is checked to the penny.
+Hijri conversion (real-world Umm al-Qura anchor dates, the true
+next-anniversary calculation, and the 30th-of-the-month edge case), and a full
+worked example (documented inside the test file) whose expected zakat is
+checked to the penny.
 
 ## The fiqh positions taken, and why
 
@@ -58,7 +60,7 @@ in the UI next to the relevant input.
 | **Nisab thresholds** | 87.48 g gold / 612.36 g silver (4.374 g per mithqal convention) | Convention differs: some institutions use 85 g / 595 g. Flagged in the UI; constants are in one place in `calc.js`. |
 | **Nisab basis for mixed wealth** | User chooses; silver is the default with a neutral note | Many scholars advise silver because it is the lower threshold — more cautious for the payer and more beneficial to recipients. Others prefer gold as historically more stable. Both thresholds are always shown. |
 | **Zakat rate** | 2.5% per lunar year | Broad agreement. |
-| **Hawl (zakat year)** | Lunar year ≈ 354 days; assessment of what is held on the zakat date, provided nisab was held at both ends of the year | Schools differ on whether dipping below nisab mid-year restarts the hawl. Flagged. |
+| **Hawl (zakat year)** | Lunar year; assessment of what is held on the zakat date, provided nisab was held at both ends of the year. The zakat date and next anniversary are shown as true Hijri dates using the built-in Umm al-Qura calendar (`Intl.DateTimeFormat`, no dependency), falling back to a 354-day approximation only where unsupported | Schools differ on whether dipping below nisab mid-year restarts the hawl — flagged. Umm al-Qura is a *calculated* calendar: local moon sighting may differ by a day or two, stated in the UI. |
 | **Fixed Gregorian zakat date** | Optional adjusted rate of ≈2.577% (2.5% × 365.25 ÷ 354.367) | An approximation used by some institutions because a Gregorian year is ~11 days longer than a lunar year. Clearly labelled an approximation; tracking a Hijri date is recommended instead. |
 | **Gold/silver valuation** | Metal content: grams × purity × price per gram (or a directly entered value) | Valuing metal content rather than retail/workmanship value is the commonly held basis. |
 | **UK legal-tender gold coins** | Fully zakatable at gold value | The CGT exemption on Sovereigns/Britannias is a UK tax rule with no bearing on zakat. Stated in the UI so nobody draws the wrong inference. |
@@ -100,8 +102,6 @@ on must happen in `calc.js` and be covered by a test.
 
 ## Roadmap
 
-- **Hijri calendar integration** — real Umm al-Qura date conversion instead of
-  the 354-day approximation; show the Hijri date of the chosen anniversary.
 - **More currencies** — and a clearer FX-rate workflow.
 - **Pensions and listed investments** — with their khilaf treatments stated,
   to the same standard as the current sections.
