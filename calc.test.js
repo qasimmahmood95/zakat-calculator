@@ -318,6 +318,71 @@ test("invalid or empty input returns null", () => {
   assert.strictEqual(Z.addLunarYear(null), null);
 });
 
+group("hijri — Umm al-Qura conversion via built-in Intl");
+
+test("the environment supports the islamic-umalqura calendar (CI must fail loudly if not)", () => {
+  assert.notStrictEqual(Z.hijriParts("2026-01-01"), null);
+});
+test("anchor: 2025-06-26 was 1 Muharram 1447 (Islamic New Year)", () => {
+  assert.deepStrictEqual(Z.hijriParts("2025-06-26"), { year: 1447, month: 1, day: 1 });
+});
+test("anchor: 2025-03-30 was 1 Shawwal 1446 (Eid al-Fitr)", () => {
+  assert.deepStrictEqual(Z.hijriParts("2025-03-30"), { year: 1446, month: 10, day: 1 });
+});
+test("formatHijri renders day, month name, year and era", () => {
+  assert.strictEqual(Z.formatHijri("2025-06-26"), "1 Muharram 1447 AH");
+});
+test("invalid input returns null from all hijri functions", () => {
+  ["", "not-a-date", null].forEach((bad) => {
+    assert.strictEqual(Z.hijriParts(bad), null);
+    assert.strictEqual(Z.formatHijri(bad), null);
+    assert.strictEqual(Z.nextLunarAnniversary(bad), null);
+  });
+});
+
+group("hijri — true next anniversary (same Hijri day+month, next year)");
+
+test("anchor: one Hijri year after 1 Muharram 1447 is 2026-06-16 (1 Muharram 1448)", () => {
+  assert.strictEqual(Z.nextLunarAnniversary("2025-06-26"), "2026-06-16");
+  assert.deepStrictEqual(Z.hijriParts("2026-06-16"), { year: 1448, month: 1, day: 1 });
+});
+test("property: the anniversary lands on the same Hijri day and month, year + 1", () => {
+  ["2026-01-05", "2026-03-20", "2026-07-12", "2026-11-30"].forEach((iso) => {
+    const start = Z.hijriParts(iso);
+    const next = Z.hijriParts(Z.nextLunarAnniversary(iso));
+    assert.strictEqual(next.year, start.year + 1, iso);
+    assert.strictEqual(next.month, start.month, iso);
+    // day matches exactly, except a day-30 start may clamp to 29 (see below)
+    assert.ok(next.day === start.day || (start.day === 30 && next.day === 29), iso);
+  });
+});
+test("property: a Hijri year is 354 or 355 days", () => {
+  ["2026-01-05", "2026-03-20", "2026-07-12"].forEach((iso) => {
+    const next = Z.nextLunarAnniversary(iso);
+    const days = Math.round((Date.parse(next) - Date.parse(iso)) / 86400000);
+    assert.ok(days === 354 || days === 355, iso + " -> " + next + " (" + days + " days)");
+  });
+});
+test("day-30 edge: an anniversary on the 30th clamps to the month's last day, never a different month", () => {
+  // Find a date falling on the 30th of a Hijri month within the next 90 days
+  // of a fixed start (30-day months occur in any 90-day window).
+  let probe = null;
+  for (let i = 0; i < 90; i++) {
+    const d = new Date(Date.UTC(2026, 0, 1 + i));
+    const iso = d.toISOString().slice(0, 10);
+    if (Z.hijriParts(iso).day === 30) { probe = iso; break; }
+  }
+  assert.ok(probe, "no Hijri 30th found in the scan window");
+  const start = Z.hijriParts(probe);
+  const next = Z.hijriParts(Z.nextLunarAnniversary(probe));
+  assert.strictEqual(next.year, start.year + 1);
+  assert.strictEqual(next.month, start.month);
+  assert.ok(next.day === 30 || next.day === 29, "clamped day was " + next.day);
+});
+test("addLunarYear remains as the 354-day fallback", () => {
+  assert.strictEqual(Z.addLunarYear("2026-01-01"), "2026-12-21");
+});
+
 group("rates — lunar vs fixed-Gregorian-date adjustment");
 
 test("lunar rate is 2.5%", () => assert.strictEqual(Z.RATE_LUNAR, 0.025));
