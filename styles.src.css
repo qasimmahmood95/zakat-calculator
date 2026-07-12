@@ -18,6 +18,8 @@
   .item-row { @apply grid grid-cols-2 items-end gap-2 rounded-xl border border-slate-200 p-3 sm:grid-cols-[1fr_auto] dark:border-slate-700; }
 }
 
+@page { margin: 15mm; }
+
 @media print {
   .no-print { display: none !important; }
   body { background: white !important; }
