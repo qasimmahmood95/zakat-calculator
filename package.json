@@ -1,0 +1,11 @@
+{
+  "name": "zakat-calculator",
+  "version": "1.0.0",
+  "private": true,
+  "description": "A free, private, in-browser zakat calculator for UK Muslims with modern asset types. Educational tool — not a fatwa.",
+  "license": "MIT",
+  "scripts": {
+    "test": "node calc.test.js",
+    "build:css": "npx -y tailwindcss@3.4.17 -c tailwind.config.js -i styles.src.css -o styles.css --minify"
+  }
+}

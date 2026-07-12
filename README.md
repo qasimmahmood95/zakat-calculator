@@ -1,0 +1,122 @@
+# Zakat Calculator
+
+[![tests](https://github.com/qasimmahmood95/zakat-calculator/actions/workflows/ci.yml/badge.svg)](https://github.com/qasimmahmood95/zakat-calculator/actions/workflows/ci.yml)
+
+**Live: <https://qasimmahmood95.github.io/zakat-calculator/>**
+
+A free, private, single-page zakat calculator aimed at UK Muslims with modern
+asset types — multi-currency cash, gold and silver, cryptoassets, an
+owner-managed limited company, investment property, and debts.
+
+**Everything runs in your browser.** No backend, no accounts, no analytics, no
+cookies — and the page makes **no network requests at all** (the Tailwind CSS
+build is committed to the repo). Figures are autosaved to your browser's local
+storage only, and a "Clear all data" button wipes them.
+
+> **Educational tool — not a fatwa.** This calculator applies commonly held
+> positions and flags every rule on which scholars differ. It cannot weigh
+> your personal circumstances. For rulings specific to your situation and
+> madhhab, consult a qualified scholar.
+
+## Running it
+
+It is a static page — nothing to build or install:
+
+- use the live page above, or
+- open `index.html` directly in a browser, or
+- serve the folder (`npx serve .` or `python -m http.server`) and browse to it.
+
+The stylesheet (`styles.css`) is a committed Tailwind build. It only needs
+rebuilding if you change markup or styles: `npm run build:css` (compiles
+`styles.src.css` with a pinned Tailwind — no dependencies are installed into
+the repo).
+
+## Running the tests
+
+All calculation logic lives in [`calc.js`](calc.js) (pure functions, no DOM,
+no I/O) and is unit-tested with plain Node — no test framework to install:
+
+```
+node calc.test.js
+```
+
+The suite covers input sanitisation, rounding, currency conversion, metal
+purity and valuation, each asset category, nisab boundary conditions (exactly
+at nisab, a penny below, missing prices), the lunar/Gregorian rate adjustment,
+and a full worked example (documented inside the test file) whose expected
+zakat is checked to the penny.
+
+## The fiqh positions taken, and why
+
+This tool never fabricates citations and never attributes positions to named
+scholars. Where schools of law (madhhabs) are named, it is at the level of
+well-known school positions only. Every one of the items below is also flagged
+in the UI next to the relevant input.
+
+| Topic | Position applied | Status |
+| --- | --- | --- |
+| **Nisab thresholds** | 87.48 g gold / 612.36 g silver (4.374 g per mithqal convention) | Convention differs: some institutions use 85 g / 595 g. Flagged in the UI; constants are in one place in `calc.js`. |
+| **Nisab basis for mixed wealth** | User chooses; silver is the default with a neutral note | Many scholars advise silver because it is the lower threshold — more cautious for the payer and more beneficial to recipients. Others prefer gold as historically more stable. Both thresholds are always shown. |
+| **Zakat rate** | 2.5% per lunar year | Broad agreement. |
+| **Hawl (zakat year)** | Lunar year ≈ 354 days; assessment of what is held on the zakat date, provided nisab was held at both ends of the year | Schools differ on whether dipping below nisab mid-year restarts the hawl. Flagged. |
+| **Fixed Gregorian zakat date** | Optional adjusted rate of ≈2.577% (2.5% × 365.25 ÷ 354.367) | An approximation used by some institutions because a Gregorian year is ~11 days longer than a lunar year. Clearly labelled an approximation; tracking a Hijri date is recommended instead. |
+| **Gold/silver valuation** | Metal content: grams × purity × price per gram (or a directly entered value) | Valuing metal content rather than retail/workmanship value is the commonly held basis. |
+| **UK legal-tender gold coins** | Fully zakatable at gold value | The CGT exemption on Sovereigns/Britannias is a UK tax rule with no bearing on zakat. Stated in the UI so nobody draws the wrong inference. |
+| **Personal-use jewellery** | The tool counts whatever the user enters; the difference is explained so users following an exemption view can leave items out | Hanafi school: gold/silver zakatable however used. Majority of other schools: customary personal-use jewellery exempt. |
+| **Cryptoassets** | Zakatable at full market value, manually entered price | The commonly held contemporary view for crypto held as an investment. The tool makes no API calls; a dated note makes price accuracy the user's responsibility. Staking/DeFi are out of scope. |
+| **Limited company (owner-managed)** | Ownership % × (cash + receivables + stock − short-term liabilities), floored at zero | A known difference area: proportional-assets versus market-value approaches, and the treatment of doubtful receivables (commonly: good debts annually, doubtful debts when recovered). The section is not designed for passive/listed holdings. Company liabilities never offset *personal* wealth (hence the floor at zero). |
+| **Investment property** | Rental income held at the zakat date: zakatable. Property held for income: not zakatable (recorded, shown as excluded). Property bought for resale: trade stock at market value | Commonly held. The mixed/changed-intention case is a difference area and is flagged. The UI warns against double-counting rent already in a bank balance. |
+| **Debts owed by you** | Deduct liabilities due within the coming year, including the next 12 months of long-term instalments; the remaining long-term balance (e.g. mortgage principal) is shown but **not** deducted | A well-known difference of opinion. The minority full-deduction position is stated in the UI, and the excluded balance appears in the breakdown so a user can take the figure to a scholar. |
+| **Rounding** | Zakat due is rounded **up** to the penny | So rounding can never cause an underpayment. |
+
+### Deliberately out of scope (for now)
+
+Known asset types this version does not model — better to say so than to
+half-model them:
+
+- **Pensions** (workplace/SIPP) — a significant khilaf area (zakat annually on
+  the accessible/underlying value vs. on access).
+- **Listed shares, funds and ISAs** — related to, but distinct from, the
+  owner-managed business section.
+- **Money owed *to* you** (personal receivables/loans to others).
+- **Agricultural produce, livestock, and mined wealth** — different rates and
+  rules entirely.
+
+## Project structure
+
+```
+index.html          — the page: structure and fiqh notes
+app.js              — UI wiring only: rows, state, autosave, rendering (no arithmetic)
+calc.js             — every calculation, commented, pure functions (browser + Node)
+calc.test.js        — zero-dependency unit tests: node calc.test.js
+styles.src.css      — stylesheet source (Tailwind directives + components)
+styles.css          — committed Tailwind build (npm run build:css)
+tailwind.config.js  — Tailwind config for the build
+.github/workflows/  — CI: runs the test suite on every push and PR
+```
+
+The separation is deliberate: any change to a number anyone might pay zakat
+on must happen in `calc.js` and be covered by a test.
+
+## Roadmap
+
+- **Hijri calendar integration** — real Umm al-Qura date conversion instead of
+  the 354-day approximation; show the Hijri date of the chosen anniversary.
+- **More currencies** — and a clearer FX-rate workflow.
+- **Pensions and listed investments** — with their khilaf treatments stated,
+  to the same standard as the current sections.
+- **Printable summary polish** — dedicated print layout with the positions
+  applied listed on the printout.
+- **Localisation** — Arabic and Urdu.
+
+## Contributing
+
+Issues and PRs are welcome. Anything that changes a calculation or a stated
+fiqh position must (a) keep `node calc.test.js` green and add tests for the
+new behaviour, and (b) state the basis of the position at the level of
+school/commonly-held views — PRs with fabricated or named-scholar citations
+will be declined.
+
+## Licence
+
+[MIT](LICENSE).
