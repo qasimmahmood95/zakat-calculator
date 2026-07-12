@@ -79,29 +79,44 @@
     saveTimer = setTimeout(saveState, 300);
   }
 
+  /**
+   * Adopt a plain state object (from localStorage or an imported file),
+   * merging it over defaults so missing or newly added fields get sane
+   * values and malformed sections are dropped rather than crashing the app.
+   * Throws on anything that is not a state-shaped object.
+   */
+  function adoptState(parsed) {
+    if (!parsed || typeof parsed !== "object") throw new Error("not a state object");
+    const base = defaultState();
+    state = {
+      settings: Object.assign(base.settings, parsed.settings || {}),
+      cash: Array.isArray(parsed.cash) ? parsed.cash : [],
+      metals: Array.isArray(parsed.metals) ? parsed.metals : [],
+      crypto: Array.isArray(parsed.crypto) ? parsed.crypto : [],
+      business: Array.isArray(parsed.business) ? parsed.business : [],
+      property: Array.isArray(parsed.property) ? parsed.property : [],
+      debts: Array.isArray(parsed.debts) ? parsed.debts : [],
+    };
+    state.settings.fxRates = Object.assign({ USD: "", EUR: "", AED: "" }, state.settings.fxRates || {});
+    // Continue id numbering above anything adopted, then repair any item
+    // that arrived without a usable id (row removal matches by numeric id).
+    SECTIONS.forEach(function (s) {
+      state[s].forEach(function (item) {
+        if (typeof item.id === "number" && Number.isFinite(item.id) && item.id >= nextId) nextId = item.id + 1;
+      });
+    });
+    SECTIONS.forEach(function (s) {
+      state[s].forEach(function (item) {
+        if (typeof item.id !== "number" || !Number.isFinite(item.id)) item.id = newId();
+      });
+    });
+  }
+
   function loadState() {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
       if (!raw) return;
-      const parsed = JSON.parse(raw);
-      if (!parsed || typeof parsed !== "object") return;
-      const base = defaultState();
-      state = {
-        settings: Object.assign(base.settings, parsed.settings || {}),
-        cash: Array.isArray(parsed.cash) ? parsed.cash : [],
-        metals: Array.isArray(parsed.metals) ? parsed.metals : [],
-        crypto: Array.isArray(parsed.crypto) ? parsed.crypto : [],
-        business: Array.isArray(parsed.business) ? parsed.business : [],
-        property: Array.isArray(parsed.property) ? parsed.property : [],
-        debts: Array.isArray(parsed.debts) ? parsed.debts : [],
-      };
-      state.settings.fxRates = Object.assign({ USD: "", EUR: "", AED: "" }, state.settings.fxRates || {});
-      // Continue id numbering above anything restored.
-      SECTIONS.forEach(function (s) {
-        state[s].forEach(function (item) {
-          if (typeof item.id === "number" && item.id >= nextId) nextId = item.id + 1;
-        });
-      });
+      adoptState(JSON.parse(raw));
     } catch (e) {
       /* corrupted storage: start fresh rather than crash */
       state = defaultState();
@@ -610,6 +625,62 @@
   }
 
   /* ------------------------------------------------------------------ *
+   * Export / import — a JSON file saved to and read from the user's own
+   * device. No upload, no clipboard, no third party: the Blob download and
+   * FileReader below are the whole data path.
+   * ------------------------------------------------------------------ */
+
+  function bindDataTransfer() {
+    document.getElementById("export-btn").addEventListener("click", function () {
+      const payload = {
+        app: "zakat-calculator",
+        schema: 1,
+        exported: new Date().toISOString().slice(0, 10),
+        state: state,
+      };
+      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "zakat-data-" + payload.exported + ".json";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    });
+
+    const fileInput = document.getElementById("import-file");
+    document.getElementById("import-btn").addEventListener("click", function () {
+      fileInput.click();
+    });
+    fileInput.addEventListener("change", function () {
+      const file = fileInput.files && fileInput.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = function () {
+        try {
+          const parsed = JSON.parse(String(reader.result));
+          if (!parsed || parsed.app !== "zakat-calculator" || typeof parsed.state !== "object") {
+            throw new Error("not a zakat-calculator export");
+          }
+          if (!window.confirm("Importing replaces everything currently entered. Continue?")) {
+            fileInput.value = "";
+            return;
+          }
+          adoptState(parsed.state);
+          populateSettings();
+          SECTIONS.forEach(renderSection);
+          refresh();
+        } catch (e) {
+          window.alert("Could not import this file — it does not look like an export from this tool.");
+        }
+        fileInput.value = "";
+      };
+      reader.readAsText(file);
+    });
+  }
+
+  /* ------------------------------------------------------------------ *
    * Init
    * ------------------------------------------------------------------ */
 
@@ -627,5 +698,6 @@
   bindSettings();
   bindItemEvents();
   bindChrome();
+  bindDataTransfer();
   renderResults();
 })();
